@@ -7,6 +7,8 @@ def color_delta(hex1: str, hex2: str) -> float:
     r2, g2, b2 = hex_to_rgb(hex2)
     return ((0.299*(r1-r2))**2 + (0.587*(g1-g2))**2 + (0.114*(b1-b2))**2)**0.5
 
+from app.recommendations import get_recommendations
+
 def build_final_report(region_results: dict) -> dict:
     regioes = region_results
 
@@ -37,10 +39,13 @@ def build_final_report(region_results: dict) -> dict:
         for imp in data.get("imperfeicoes", []):
             todas_imperf.append({**imp, "regiao": region})
 
+    recommendations = get_recommendations(tom_geral, subtom_geral)
+
     return {
         "tom_geral_fitzpatrick": tom_geral,
         "subtom_predominante":   subtom_geral,
         "regioes":               regioes,
         "comparacao_tons":       comparacoes,
         "imperfeicoes":          todas_imperf,
+        "recommendations":       recommendations,
     }

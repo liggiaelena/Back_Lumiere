@@ -20,3 +20,6 @@ Thumbs.db
 # editor
 .vscode/
 .idea/
+
+# mediapipe model (large binary, downloaded at runtime)
+*.task
