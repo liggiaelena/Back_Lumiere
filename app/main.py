@@ -22,12 +22,12 @@ def health():
 async def analyze(file: UploadFile = File(...)):
     ALLOWED = {"image/jpeg", "image/png", "image/webp"}
     if file.content_type not in ALLOWED:
-        raise HTTPException(400, detail="Formato inválido. Use JPG, PNG ou WebP.")
+        raise HTTPException(400, detail="Invalid format. Use JPG, PNG or WebP.")
 
     contents = await file.read()
 
     if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(400, detail="Imagem muito grande. Máximo 10MB.")
+        raise HTTPException(413, detail="Image too large. Maximum 10MB.")
 
     try:
         img_rgb = load_and_validate(contents)
@@ -37,4 +37,4 @@ async def analyze(file: UploadFile = File(...)):
         raise HTTPException(422, detail=str(e))
     except Exception:
         traceback.print_exc()
-        raise HTTPException(500, detail="Erro interno ao analisar a imagem.")
+        raise HTTPException(500, detail="Internal error while analyzing the image.")

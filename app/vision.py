@@ -48,4 +48,15 @@ async def analyze_region(region_name: str, b64_crop: str) -> dict:
     raw = result.content[0].text.strip()
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-    return json.loads(raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {
+            "tom_hex": "#c68b6e",
+            "tom_fitzpatrick": 3,
+            "subtom": "neutro",
+            "oleosidade": "normal",
+            "imperfeicoes": [],
+            "uniformidade": 5,
+            "notas": "Analysis unavailable for this region.",
+        }
