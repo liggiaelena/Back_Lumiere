@@ -40,7 +40,7 @@ def get_landmarks(img_array: np.ndarray) -> dict:
         result = landmarker.detect(mp_image)
 
     if not result.face_landmarks:
-        raise ValueError("Nenhum rosto detectado. Centralize o rosto na foto e garanta boa iluminação.")
+        raise ValueError("No face detected. Please center your face in the photo and ensure good lighting.")
 
     h, w = img_array.shape[:2]
     lm = result.face_landmarks[0]

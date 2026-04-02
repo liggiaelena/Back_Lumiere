@@ -9,24 +9,24 @@ def load_and_validate(contents: bytes) -> np.ndarray:
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if img is None:
-        raise ValueError("Não foi possível ler a imagem.")
+        raise ValueError("Could not read the image. Please try a different file.")
 
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    # Corrige orientação EXIF (fotos de celular)
+    # Fix EXIF orientation (mobile photos)
     pil = Image.fromarray(img_rgb)
     pil = ImageOps.exif_transpose(pil)
     img_rgb = np.array(pil)
 
     h, w = img_rgb.shape[:2]
     if min(h, w) < 300:
-        raise ValueError("Imagem muito pequena. Use pelo menos 300x300px.")
+        raise ValueError("Image too small. Please use at least 300x300px.")
 
     mean_brightness = img_rgb.mean()
     if mean_brightness < 20:
-        raise ValueError("Imagem muito escura. Melhore a iluminação.")
+        raise ValueError("Image too dark. Please improve the lighting.")
     if mean_brightness > 235:
-        raise ValueError("Imagem muito clara ou superexposta.")
+        raise ValueError("Image too bright or overexposed.")
 
     return img_rgb
 
