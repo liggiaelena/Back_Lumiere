@@ -1,8 +1,22 @@
 import cv2
 import numpy as np
 import mediapipe as mp
-import base64, io
+from mediapipe.tasks import python as mp_python
+from mediapipe.tasks.python import vision as mp_vision
+import base64, io, os, urllib.request
 from PIL import Image
+
+_MODEL_PATH = os.path.join(os.path.expanduser("~"), "face_landmarker.task")
+_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+)
+
+def _ensure_model():
+    if not os.path.exists(_MODEL_PATH):
+        print("Downloading face_landmarker model (~1 MB)...")
+        urllib.request.urlretrieve(_MODEL_URL, _MODEL_PATH)
+        print("Model downloaded.")
 
 FACE_REGIONS = {
     "testa":      [10, 338, 297, 332, 284, 251, 389, 109, 67, 103],
@@ -13,20 +27,23 @@ FACE_REGIONS = {
 }
 
 def get_landmarks(img_array: np.ndarray) -> dict:
-    mp_face = mp.solutions.face_mesh
-    with mp_face.FaceMesh(
-        static_image_mode=True,
-        max_num_faces=1,
-        refine_landmarks=True,
-        min_detection_confidence=0.7
-    ) as face_mesh:
-        results = face_mesh.process(img_array)
+    _ensure_model()
+    base_options = mp_python.BaseOptions(model_asset_path=_MODEL_PATH)
+    options = mp_vision.FaceLandmarkerOptions(
+        base_options=base_options,
+        num_faces=1,
+        min_face_detection_confidence=0.7,
+        min_face_presence_confidence=0.7,
+    )
+    with mp_vision.FaceLandmarker.create_from_options(options) as landmarker:
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_array)
+        result = landmarker.detect(mp_image)
 
-    if not results.multi_face_landmarks:
+    if not result.face_landmarks:
         raise ValueError("Nenhum rosto detectado. Centralize o rosto na foto e garanta boa iluminação.")
 
     h, w = img_array.shape[:2]
-    lm = results.multi_face_landmarks[0].landmark
+    lm = result.face_landmarks[0]
 
     coords = {}
     for region, indices in FACE_REGIONS.items():

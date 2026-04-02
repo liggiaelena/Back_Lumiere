@@ -3,24 +3,24 @@ from app.config import settings
 
 _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
-PROMPT = """Você é um especialista em análise de pele. Analise esta imagem de uma região facial isolada e responda APENAS com JSON válido, sem texto adicional, sem markdown, sem explicações.
+PROMPT = """You are a skin analysis expert. Analyze this image of an isolated facial region and respond ONLY with valid JSON, no additional text, no markdown, no explanations.
 
-Estrutura obrigatória:
+Required structure:
 {
   "tom_hex": "#RRGGBB",
-  "tom_fitzpatrick": número de 1 a 6,
+  "tom_fitzpatrick": number from 1 to 6,
   "subtom": "quente" | "frio" | "neutro",
   "oleosidade": "seco" | "normal" | "misto" | "oleoso",
   "imperfeicoes": [
     {"tipo": "acne"|"mancha"|"poro"|"linha"|"vermelhidao"|"outro", "intensidade": "leve"|"moderado"|"intenso"}
   ],
-  "uniformidade": número de 0 a 10,
-  "notas": "observação em português, máximo 1 frase"
+  "uniformidade": number from 0 to 10,
+  "notas": "observation in English, maximum 1 sentence"
 }
 
-Escala Fitzpatrick: 1=muito claro, 2=claro, 3=médio claro, 4=médio, 5=escuro, 6=muito escuro.
-Se não houver imperfeições visíveis, retorne imperfeicoes como lista vazia.
-Analise apenas o que é visível — não invente dados."""
+Fitzpatrick scale: 1=very light, 2=light, 3=medium light, 4=medium, 5=dark, 6=very dark.
+If no visible imperfections, return imperfeicoes as empty list.
+Analyze only what is visible — do not invent data."""
 
 async def analyze_region(region_name: str, b64_crop: str) -> dict:
     loop = asyncio.get_event_loop()
