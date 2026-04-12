@@ -23,7 +23,7 @@ FACE_REGIONS = {
     "bochecha_e": [36, 31, 228, 229, 230, 231, 232, 233, 128, 121],
     "bochecha_d": [266, 261, 448, 449, 450, 451, 452, 453, 357, 350],
     "nariz":      [1, 2, 98, 327, 168, 197, 195, 5],
-    "queixo":     [175, 199, 200, 18, 152, 171, 148],
+    "queixo":     [175, 199, 200, 18, 152, 32, 262],
 }
 
 def get_landmarks(img_array: np.ndarray) -> dict:
@@ -72,11 +72,22 @@ def extract_region_crops(img_array: np.ndarray, coords: dict) -> dict:
         masked = cv2.bitwise_and(img_array, img_array, mask=mask)
         crop = masked[y1:y2, x1:x2]
 
-        pil_crop = Image.fromarray(crop)
+        # Filter out very dark pixels (shadow, hair, background) before
+        # encoding — keeps the crop representative of actual skin tone.
+        # Pixels with all channels below 30 are considered non-skin.
+        brightness = crop.max(axis=2)  # per-pixel max channel value
+        skin_mask_crop = brightness > 30
+        if skin_mask_crop.any():
+            clean = crop.copy()
+            clean[~skin_mask_crop] = [0, 0, 0]
+        else:
+            clean = crop  # fallback: keep as-is if everything is dark
+
+        pil_crop = Image.fromarray(clean)
         buf = io.BytesIO()
         pil_crop.save(buf, format="JPEG", quality=85)
         b64_crop = base64.b64encode(buf.getvalue()).decode()
 
-        crops[region] = {"array": crop, "base64": b64_crop}
+        crops[region] = {"array": clean, "base64": b64_crop}
 
     return crops
