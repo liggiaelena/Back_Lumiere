@@ -23,3 +23,6 @@ Thumbs.db
 
 # mediapipe model (large binary, downloaded at runtime)
 *.task
+
+bisenet_best.pth
+79999_iter.pth

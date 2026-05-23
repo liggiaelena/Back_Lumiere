@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 import cv2
@@ -10,15 +11,21 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from app.models.model import BiSeNet
-
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parents[1]
+DATA_COLLECTION_DIR = PROJECT_DIR / "data-collection"
+TRAINING_DIR = PROJECT_DIR / "training"
 
-INPUT_FACE = BASE_DIR / "outputs" / "face_crop.jpg"
-OUTPUT_DIR = BASE_DIR / "outputs"
+if str(TRAINING_DIR) not in sys.path:
+    sys.path.insert(0, str(TRAINING_DIR))
 
-BEST_MODEL = BASE_DIR / "checkpoints" / "bisenet_best.pth"
-DEFAULT_MODEL = BASE_DIR / "checkpoints" / "79999_iter.pth"
+from models.model import BiSeNet
+
+INPUT_FACE = DATA_COLLECTION_DIR / "outputs" / "face_crop.jpg"
+OUTPUT_DIR = DATA_COLLECTION_DIR / "outputs"
+
+BEST_MODEL = TRAINING_DIR / "checkpoints" / "bisenet_best.pth"
+DEFAULT_MODEL = TRAINING_DIR / "checkpoints" / "79999_iter.pth"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 INPUT_SIZE = (512, 512)

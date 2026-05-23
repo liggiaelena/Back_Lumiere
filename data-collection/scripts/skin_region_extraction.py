@@ -5,10 +5,11 @@ import numpy as np
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+DATA_COLLECTION_DIR = BASE_DIR.parent
 
-MASK_PATH = BASE_DIR / "outputs" / "parsing_mask.png"
-IMAGE_PATH = BASE_DIR / "outputs" / "face_crop.jpg"
-OUTPUT_PATH = BASE_DIR / "outputs" / "skin_only.png"
+MASK_PATH = DATA_COLLECTION_DIR / "outputs" / "parsing_mask.png"
+IMAGE_PATH = DATA_COLLECTION_DIR / "outputs" / "face_crop.jpg"
+OUTPUT_PATH = DATA_COLLECTION_DIR / "outputs" / "skin_only.png"
 
 SKIN_CLASS = 1
 

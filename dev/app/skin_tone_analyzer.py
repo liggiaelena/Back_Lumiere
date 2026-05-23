@@ -1,5 +1,6 @@
 
-import os
+import sys
+from pathlib import Path
 import numpy as np
 import cv2
 from PIL import Image
@@ -7,11 +8,15 @@ import torch
 import torchvision.transforms as transforms
  
 # ── Resolve paths relative to this file ─────────────────────────────────────
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-CHECKPOINT = os.path.join(BASE_DIR, "checkpoints", "bisenet_best.pth")
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+TRAINING_DIR = PROJECT_DIR / "training"
+CHECKPOINT = TRAINING_DIR / "checkpoints" / "bisenet_best.pth"
 NUM_CLASSES = 14
 SKIN_LABEL  = 1       # BiSeNet label index for skin region
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
+
+if str(TRAINING_DIR) not in sys.path:
+    sys.path.insert(0, str(TRAINING_DIR))
  
 # ── Lazy-load model once at startup, not on every request ────────────────────
 _model = None
@@ -19,7 +24,7 @@ _model = None
 def _get_model():
     global _model
     if _model is None:
-        from app.models.model import BiSeNet
+        from models.model import BiSeNet
         net = BiSeNet(n_classes=NUM_CLASSES)
         state = torch.load(CHECKPOINT, map_location=DEVICE, weights_only=False)
         if isinstance(state, dict) and "model_state_dict" in state:

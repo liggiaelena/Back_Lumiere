@@ -6,9 +6,10 @@ import numpy as np
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+DATA_COLLECTION_DIR = BASE_DIR.parent
 
-IMAGE_PATH = BASE_DIR / "outputs" / "skin_only.png"
-OUTPUT_JSON = BASE_DIR / "outputs" / "skin_rgb.json"
+IMAGE_PATH = DATA_COLLECTION_DIR / "outputs" / "skin_only.png"
+OUTPUT_JSON = DATA_COLLECTION_DIR / "outputs" / "skin_rgb.json"
 
 
 def rgb_to_hex(rgb):
