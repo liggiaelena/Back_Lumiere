@@ -24,7 +24,7 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, BiS
 ```text
 Back_Lumiere/
 ├── README.md
-├── requirements.txt         # project dependencies (moved to repository root)
+├── requirements.txt         # project dependencies
 ├── .env                     # API key, never commit this
 ├── data-collection/
 │   ├── outputs/             # Local intermediate images and JSON outputs
@@ -42,8 +42,11 @@ Back_Lumiere/
 │   │   └── config.py
 │   └── run.py               # Development server entrypoint
 ├── documentation/
-├── training/
+│   └── US160_SegFormer.md   # Technical evaluation and hardware benchmark report for SegFormer selection
+└── training/
     ├── checkpoints/         # BiSeNet weights
+    ├── SegFormer/
+│   │   └── benchmark.py     # Performance benchmarking script for SegFormer variants (B0-B5)
     └── models/              # BiSeNet model architecture
     
 ```
