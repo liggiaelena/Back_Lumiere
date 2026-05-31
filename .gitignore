@@ -26,3 +26,6 @@ Thumbs.db
 
 #bisenet_best.pth
 #79999_iter.pth
+
+.history
+training/datasets/

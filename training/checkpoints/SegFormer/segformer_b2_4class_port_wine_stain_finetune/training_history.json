@@ -1,0 +1,302 @@
+[
+  {
+    "epoch": 1,
+    "train_loss": 1.143285369873047,
+    "val_loss": 0.8515874981880188,
+    "val_port_wine_stain_iou": 0.4830488760079949
+  },
+  {
+    "epoch": 2,
+    "train_loss": 0.8268527030944824,
+    "val_loss": 0.6945382118225097,
+    "val_port_wine_stain_iou": 0.5426694153474767
+  },
+  {
+    "epoch": 3,
+    "train_loss": 0.6365195441246033,
+    "val_loss": 0.6340738773345947,
+    "val_port_wine_stain_iou": 0.5591189697530572
+  },
+  {
+    "epoch": 4,
+    "train_loss": 0.4993450653553009,
+    "val_loss": 0.5181399285793304,
+    "val_port_wine_stain_iou": 0.5701788949567745
+  },
+  {
+    "epoch": 5,
+    "train_loss": 0.4092568588256836,
+    "val_loss": 0.48343915343284605,
+    "val_port_wine_stain_iou": 0.5680187173395772
+  },
+  {
+    "epoch": 6,
+    "train_loss": 0.33871314764022825,
+    "val_loss": 0.43529562950134276,
+    "val_port_wine_stain_iou": 0.5648893277052707
+  },
+  {
+    "epoch": 7,
+    "train_loss": 0.29010033726692197,
+    "val_loss": 0.45931330919265745,
+    "val_port_wine_stain_iou": 0.5571447502519917
+  },
+  {
+    "epoch": 8,
+    "train_loss": 0.25432123363018033,
+    "val_loss": 0.4093136787414551,
+    "val_port_wine_stain_iou": 0.568720664637726
+  },
+  {
+    "epoch": 9,
+    "train_loss": 0.2261517798900604,
+    "val_loss": 0.3502415299415588,
+    "val_port_wine_stain_iou": 0.5828446711001226
+  },
+  {
+    "epoch": 10,
+    "train_loss": 0.20670475363731383,
+    "val_loss": 0.360395023226738,
+    "val_port_wine_stain_iou": 0.5686193509273124
+  },
+  {
+    "epoch": 11,
+    "train_loss": 0.17981936752796174,
+    "val_loss": 0.35350020229816437,
+    "val_port_wine_stain_iou": 0.5646798414897566
+  },
+  {
+    "epoch": 12,
+    "train_loss": 0.17104218602180482,
+    "val_loss": 0.3600907981395721,
+    "val_port_wine_stain_iou": 0.5730876234622
+  },
+  {
+    "epoch": 13,
+    "train_loss": 0.15963682353496553,
+    "val_loss": 0.33417577743530275,
+    "val_port_wine_stain_iou": 0.560766006853164
+  },
+  {
+    "epoch": 14,
+    "train_loss": 0.14703642338514328,
+    "val_loss": 0.3516337662935257,
+    "val_port_wine_stain_iou": 0.5654102225481308
+  },
+  {
+    "epoch": 15,
+    "train_loss": 0.13458369672298431,
+    "val_loss": 0.35684712827205656,
+    "val_port_wine_stain_iou": 0.5639567946654754
+  },
+  {
+    "epoch": 16,
+    "train_loss": 0.1246096122264862,
+    "val_loss": 0.3602836668491364,
+    "val_port_wine_stain_iou": 0.5631912808034506
+  },
+  {
+    "epoch": 17,
+    "train_loss": 0.12049588024616241,
+    "val_loss": 0.35204389691352844,
+    "val_port_wine_stain_iou": 0.5614500525006633
+  },
+  {
+    "epoch": 18,
+    "train_loss": 0.11657086193561554,
+    "val_loss": 0.36147920191287997,
+    "val_port_wine_stain_iou": 0.5546639094615291
+  },
+  {
+    "epoch": 19,
+    "train_loss": 0.10925729095935821,
+    "val_loss": 0.32852143943309786,
+    "val_port_wine_stain_iou": 0.5686430557127566
+  },
+  {
+    "epoch": 20,
+    "train_loss": 0.1092803692817688,
+    "val_loss": 0.3542426824569702,
+    "val_port_wine_stain_iou": 0.5319515350394333
+  },
+  {
+    "epoch": 21,
+    "train_loss": 0.10146344363689423,
+    "val_loss": 0.326541930437088,
+    "val_port_wine_stain_iou": 0.5841015669166646
+  },
+  {
+    "epoch": 22,
+    "train_loss": 0.09204050868749619,
+    "val_loss": 0.34867514967918395,
+    "val_port_wine_stain_iou": 0.57116049477892
+  },
+  {
+    "epoch": 23,
+    "train_loss": 0.08622661560773849,
+    "val_loss": 0.35245940685272215,
+    "val_port_wine_stain_iou": 0.5684368588897467
+  },
+  {
+    "epoch": 24,
+    "train_loss": 0.08441403210163116,
+    "val_loss": 0.3384033292531967,
+    "val_port_wine_stain_iou": 0.561740380115309
+  },
+  {
+    "epoch": 25,
+    "train_loss": 0.08149432435631752,
+    "val_loss": 0.3549977123737335,
+    "val_port_wine_stain_iou": 0.557743052761541
+  },
+  {
+    "epoch": 26,
+    "train_loss": 0.08117519333958625,
+    "val_loss": 0.3426005721092224,
+    "val_port_wine_stain_iou": 0.5635742454003828
+  },
+  {
+    "epoch": 27,
+    "train_loss": 0.07719336733222008,
+    "val_loss": 0.3586529016494751,
+    "val_port_wine_stain_iou": 0.5584826582707667
+  },
+  {
+    "epoch": 28,
+    "train_loss": 0.07371747195720672,
+    "val_loss": 0.36210729479789733,
+    "val_port_wine_stain_iou": 0.5581334790713424
+  },
+  {
+    "epoch": 29,
+    "train_loss": 0.07288195490837097,
+    "val_loss": 0.3611564040184021,
+    "val_port_wine_stain_iou": 0.5584442022933287
+  },
+  {
+    "epoch": 30,
+    "train_loss": 0.06898374050855637,
+    "val_loss": 0.361962828040123,
+    "val_port_wine_stain_iou": 0.5619091898162372
+  },
+  {
+    "epoch": 31,
+    "train_loss": 0.06663895770907402,
+    "val_loss": 0.35126384198665617,
+    "val_port_wine_stain_iou": 0.5705777119353752
+  },
+  {
+    "epoch": 32,
+    "train_loss": 0.07610069945454598,
+    "val_loss": 0.37047004997730254,
+    "val_port_wine_stain_iou": 0.5515111995231143
+  },
+  {
+    "epoch": 33,
+    "train_loss": 0.06610149949789047,
+    "val_loss": 0.3788396567106247,
+    "val_port_wine_stain_iou": 0.5528768945470823
+  },
+  {
+    "epoch": 34,
+    "train_loss": 0.06444651454687118,
+    "val_loss": 0.36008980870246887,
+    "val_port_wine_stain_iou": 0.5576823629511054
+  },
+  {
+    "epoch": 35,
+    "train_loss": 0.06158975541591644,
+    "val_loss": 0.3728710800409317,
+    "val_port_wine_stain_iou": 0.5591333118644155
+  },
+  {
+    "epoch": 36,
+    "train_loss": 0.05980791881680489,
+    "val_loss": 0.3655943900346756,
+    "val_port_wine_stain_iou": 0.5593596231456719
+  },
+  {
+    "epoch": 37,
+    "train_loss": 0.058862649053335186,
+    "val_loss": 0.37792659401893614,
+    "val_port_wine_stain_iou": 0.5595766799270518
+  },
+  {
+    "epoch": 38,
+    "train_loss": 0.0557150362432003,
+    "val_loss": 0.39070825576782225,
+    "val_port_wine_stain_iou": 0.5484261009355906
+  },
+  {
+    "epoch": 39,
+    "train_loss": 0.054286201298236844,
+    "val_loss": 0.39539517760276793,
+    "val_port_wine_stain_iou": 0.5582371465617018
+  },
+  {
+    "epoch": 40,
+    "train_loss": 0.05560912981629371,
+    "val_loss": 0.3799225836992264,
+    "val_port_wine_stain_iou": 0.5623554834288319
+  },
+  {
+    "epoch": 41,
+    "train_loss": 0.05234982796013355,
+    "val_loss": 0.38466472625732423,
+    "val_port_wine_stain_iou": 0.5496295617558424
+  },
+  {
+    "epoch": 42,
+    "train_loss": 0.054308924973011014,
+    "val_loss": 0.3843527913093567,
+    "val_port_wine_stain_iou": 0.5630003018202244
+  },
+  {
+    "epoch": 43,
+    "train_loss": 0.05399232976138592,
+    "val_loss": 0.386550372838974,
+    "val_port_wine_stain_iou": 0.5593626058759311
+  },
+  {
+    "epoch": 44,
+    "train_loss": 0.054917261749505994,
+    "val_loss": 0.37239029407501223,
+    "val_port_wine_stain_iou": 0.5614203637699472
+  },
+  {
+    "epoch": 45,
+    "train_loss": 0.052803650572896,
+    "val_loss": 0.40671831667423247,
+    "val_port_wine_stain_iou": 0.5666144870616019
+  },
+  {
+    "epoch": 46,
+    "train_loss": 0.05208578631281853,
+    "val_loss": 0.3629966706037521,
+    "val_port_wine_stain_iou": 0.5692350689204729
+  },
+  {
+    "epoch": 47,
+    "train_loss": 0.04907575517892838,
+    "val_loss": 0.40493584871292115,
+    "val_port_wine_stain_iou": 0.5614712293337105
+  },
+  {
+    "epoch": 48,
+    "train_loss": 0.04764656722545624,
+    "val_loss": 0.3824164628982544,
+    "val_port_wine_stain_iou": 0.5693527769802197
+  },
+  {
+    "epoch": 49,
+    "train_loss": 0.048174410909414295,
+    "val_loss": 0.3907096147537231,
+    "val_port_wine_stain_iou": 0.5544391292618138
+  },
+  {
+    "epoch": 50,
+    "train_loss": 0.04774768590927124,
+    "val_loss": 0.38266307711601255,
+    "val_port_wine_stain_iou": 0.5646398383803009
+  }
+]
