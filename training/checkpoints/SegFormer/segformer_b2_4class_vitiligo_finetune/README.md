@@ -41,6 +41,13 @@ Task 7 — Finetune SegFormer for vitiligo detection
 - Best validation vitiligo IoU: 0.4933 at epoch 22
 - Final epoch validation vitiligo IoU: see `vitiligo_finetune/training_history.json`
 
+## Training Notes
+This model was finetuned for pixel-level vitiligo detection on a dataset of 100 annotated face images (70 train / 15 val / 15 test). The best validation IoU achieved was **0.4933**, which is comparable to the melasma model (0.4826) trained by the team under the same conditions.
+
+The dataset quality is good — images were carefully annotated at pixel level using Label Studio with RLE brush masks. However, 100 images is too few for robust generalisation. The model shows high IoU variance between epochs (oscillating between 0.10 and 0.49) which is a direct symptom of the small dataset size.
+
+**This model will need to be retrained** once a larger dataset (ideally 500+ annotated images, as originally scoped in Task 3) is available. The current checkpoint is sufficient for the academic prototype but should not be used in a production environment without retraining on more data.
+
 ## Important Limitation
 This is an academic prototype model only. It is not intended for medical diagnosis or clinical decision-making.
 
