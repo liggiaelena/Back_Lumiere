@@ -17,6 +17,7 @@ Finetune SegFormer from the existing Lumiere SegFormer-B2 checkpoint for pixel-l
 
 ## Dataset
 - Source: CVAT `Segmentation mask 1.1` export
+- Original image source: https://www.kaggle.com/datasets/roshni2404/rare-skin-disease-dataset
 - Processed dataset: `training/datasets/port_wine_stain/processed`
 - Total paired samples: 136
 - Split:
