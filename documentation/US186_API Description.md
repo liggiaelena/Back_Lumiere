@@ -3,7 +3,7 @@
 ## 1. GET /
 
 - Description: Service health check (服務健康檢查)
-- Method: GET
+- Method: `GET`
 - Path: `/`
 - Response (200):
   ```json
@@ -16,7 +16,7 @@
 ## 2. POST /api/analyze
 
 - Description: Upload a facial photo for skin analysis (上傳人臉照片並進行皮膚分析)
-- Method: POST
+- Method: `POST`
 - Path: `/api/analyze`
 - Content-Type: `multipart/form-data`
 - Request Fields:
@@ -29,61 +29,65 @@
 
 ### Possible Responses (可能回應)
 
-- 200 OK
+- `200 OK`
   - `application/json`
   - Content: Complete analysis result (see [API 200 Response Structure](#api-200-response-structure) below) (完整分析結果)
-- 400 Bad Request
+- `400 Bad Request`
   - Reason: Unsupported file format (檔案格式不支援)
   - Example:
     ```json
     { "detail": "Invalid format. Use JPG, PNG or WebP." }
     ```
-- 413 Payload Too Large
+- `413 Payload Too Large`
   - Reason: File exceeds 10 MB (檔案超過 10 MB)
-- 422 Unprocessable Entity
+- `422 Unprocessable Entity`
   - Reason: Image content or validation failed (檔案內容或影像驗證失敗)
-- 500 Internal Server Error
+- `500 Internal Server Error`
   - Reason: Internal error in image analysis pipeline (影像分析流程內部錯誤)
 
 ## 3. Frontend API Usage (前端 API 用法)
 
-- Frontend Call Address: `http://localhost:8001` (default) (前端呼叫位址；預設)
-- Frontend Service: `Front_Lumiere/src/services/api.js`
-- Wrapper Function:
+- Frontend base URL: `http://localhost:8001` (default) (前端呼叫位址；預設)
+- Frontend service file: `Front_Lumiere/src/services/api.js`
+- Wrapper function:
   - `analyzeImage(file)`
   - Sends `multipart/form-data` to `/api/analyze`
 
 ## 4. Known Limitations (已知限制)
 
 - Only one main analysis API (僅有單一主要分析 API)
-- Currently no authentication or authorization mechanism (目前無額外認證或授權機制)
-- Currently only accessible from localhost or matching `http://localhost:\d+` origins (目前只開放給 localhost 或符合 `http://localhost:\d+` 的來源)
+- No authentication or authorization implemented (目前無額外認證或授權機制)
+- Only accessible from localhost or matching `http://localhost:\d+` origins (目前只開放給 localhost 或符合 `http://localhost:\d+` 的來源)
 
 ## 5. Determination Basis and Sources (判斷依據與來源)
 
 ### Backend API Sources (後端 API 來源)
-- Main Source: `Back_Lumiere/dev/app/main.py`
+
+- Main source: `Back_Lumiere/dev/app/main.py`
 - This file defines the FastAPI application `app = FastAPI(...)` (這個檔案定義了 FastAPI 應用)
-- `GET /` inferred from `@app.get("/")` (`@app.get("/")` 判斷出)
-- `POST /api/analyze` inferred from `@app.post("/api/analyze")` (`@app.post("/api/analyze")` 判斷出)
+- `GET /` is defined by `@app.get("/")` (`@app.get("/")` 判斷出)
+- `POST /api/analyze` is defined by `@app.post("/api/analyze")` (`@app.post("/api/analyze")` 判斷出)
 
 ### Backend Determination Details (後端判斷細節)
-- Request parameters for `POST /api/analyze` inferred from `analyze(file: UploadFile = File(...))` (由...推斷)
-- Supported formats inferred from `file.content_type not in ALLOWED`, which includes `image/jpeg`, `image/png`, `image/webp` (由...推斷)
-- Maximum file size inferred from `if len(contents) > 10 * 1024 * 1024` = 10 MB limit (判斷出)
-- Error responses 400, 413, 422, 500 inferred from `HTTPException(...)` and `except` blocks (推斷)
+
+- Request parameters for `POST /api/analyze` are inferred from `analyze(file: UploadFile = File(...))` (由參數推斷)
+- Supported formats are inferred from `file.content_type not in ALLOWED`, where `ALLOWED` includes `image/jpeg`, `image/png`, `image/webp` (由格式判斷)
+- Maximum file size is inferred from `if len(contents) > 10 * 1024 * 1024` = 10 MB (判斷出)
+- Error responses `400`, `413`, `422`, `500` are inferred from `HTTPException(...)` and exception handling (推斷)
 
 ### Frontend Call Sources (前端呼叫來源)
-- Main Source: `Front_Lumiere/src/services/api.js`
-- Backend path `/api/analyze` confirmed by `api.post('/api/analyze', formData, ...)` (確認)
-- Request field name `file` inferred from `formData.append('file', file)` (推斷)
-- Frontend uses multipart form upload confirmed by `headers: { 'Content-Type': 'multipart/form-data' }` (推斷)
+
+- Main source: `Front_Lumiere/src/services/api.js`
+- Backend path `/api/analyze` is confirmed by `api.post('/api/analyze', formData, ...)` (確認)
+- Request field name `file` is inferred from `formData.append('file', file)` (推斷)
+- Multipart upload is confirmed by `headers: { 'Content-Type': 'multipart/form-data' }` (推斷)
 
 ### Supplementary Document Sources (補充文件來源)
-- `Back_Lumiere/README.md` also lists `GET /` and `POST /api/analyze`, consistent with code definition (與程式碼定義一致)
-- This document serves as an out-of-version reference to confirm API endpoints and limitations remain unchanged (確認 API 端點與限制不變)
 
-## 6. API 200 Response Complete Structure (API 200 回應完整結構)
+- `Back_Lumiere/README.md` also lists `GET /` and `POST /api/analyze`, consistent with the code (與程式碼定義一致)
+- This document serves as a reference to confirm that API endpoints and limitations remain unchanged (確認 API 端點與限制不變)
+
+## 6. API 200 Response Structure (API 200 回應完整結構)
 
 ### Root Level Structure (根層結構)
 
@@ -92,7 +96,7 @@
   "tom_geral_fitzpatrick": "integer (1-6) [Fitzpatrick skin type]",
   "tom_geral_hex": "string ('#RRGGBB') [Overall skin tone hex]",
   "fitzpatrick_source": "string ('bisenet' | 'claude') [Data source]",
-  "subtom_predominante": "string ('quente' | 'frio' | 'neutro') [Undertone]",
+  "subtom_predominante": "string ('quente' | 'frio' | 'neutro') [Predominant undertone]",
   "regioes": "object [Region-by-region analysis]",
   "comparacao_tons": "object [Tone comparisons between regions]",
   "imperfeicoes": "array [All detected imperfections]",
@@ -116,9 +120,9 @@
 
 Structure: `{ "region_name": {...}, "region_name": {...}, ... }`
 
-**Supported Region Names (支援的區域名稱)**: `testa`, `bochecha_e`, `bochecha_d`, `nariz`, `queixo`, etc.
+**Supported region names (支援的區域名稱)**: `testa`, `bochecha_e`, `bochecha_d`, `nariz`, `queixo`, etc.
 
-Each region structure (每個區域結構):
+Each region structure:
 
 ```json
 {
@@ -153,7 +157,7 @@ Example region:
 
 Structure: `{ "region1_vs_region2": {...}, ... }`
 
-Each comparison structure (每個對比結構):
+Each comparison structure:
 
 ```json
 {
@@ -162,7 +166,7 @@ Each comparison structure (每個對比結構):
 }
 ```
 
-Level Determination (等級判定):
+Level determination:
 - `delta > 20` → `"alto"` (high)
 - `10 < delta ≤ 20` → `"moderado"` (moderate)
 - `delta ≤ 10` → `"baixo"` (low)
@@ -171,7 +175,7 @@ Level Determination (等級判定):
 
 Structure: `[{...}, {...}, ...]`
 
-Each imperfection structure (每個缺陷結構):
+Each imperfection structure:
 
 ```json
 {
@@ -185,7 +189,7 @@ Each imperfection structure (每個缺陷結構):
 
 Structure: `[{...}, {...}, ...]`
 
-Each recommendation structure (每個推薦結構):
+Each recommendation structure:
 
 ```json
 {
@@ -199,14 +203,14 @@ Each recommendation structure (每個推薦結構):
 }
 ```
 
-Recommendation Criteria (推薦基準):
+Recommendation criteria:
 - Prioritizes matching skin undertone preference (優先匹配膚色冷暖調偏好)
 - Sorted by color distance proximity (按色差遠近排序)
 - Maximum 1 shade recommendation per brand (每個品牌最多推薦 1 個色號)
 
 #### Skin_tone (BiSeNet Full-Face Analysis) (BiSeNet 整臉膚色分析)
 
-Structure (結構):
+Structure:
 
 ```json
 {
@@ -218,7 +222,7 @@ Structure (結構):
 }
 ```
 
-Explanation (說明):
+Explanation:
 - `mean_*` is the average of all detected skin pixels (所有膚色像素的平均值)
 - `median_*` is the median (more representative of typical skin tone) (更能代表典型膚色)
 - Values may be `null` or `0` if model cannot detect skin pixels (若無偵測到膚色像素)
