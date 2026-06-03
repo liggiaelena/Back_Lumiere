@@ -47,7 +47,9 @@ Back_Lumiere/
      │   │   └── config.py
      │   └── run.py               # Development server entrypoint
      ├── documentation/
-     │   └── US160_SegFormer.md   # Technical evaluation and hardware benchmark report
+     │   ├── US160_SegFormer.md               # Technical evaluation and hardware benchmark report
+     │   ├── US186_API Description.md         # API contract and analysis output structure
+     │   └── MLOps_UseCase_API_Design.xlsx    # API design use case workbook
      └── training/
          ├── checkpoints/         # Model weights
          │   ├── bisenet_best.pth
