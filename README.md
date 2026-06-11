@@ -21,34 +21,60 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, BiS
 
 ## Project Structure
 
-```text
+
+```
 Back_Lumiere/
-├── README.md
-├── requirements.txt         # project dependencies
-├── .env                     # API key, never commit this
-├── data-collection/
-│   ├── outputs/             # Local intermediate images and JSON outputs
-│   └── scripts/             # Face parsing, skin extraction, RGB estimation
-├── dev/
-│   ├── app/
-│   │   ├── main.py          # FastAPI app, routes, CORS
-│   │   ├── pipeline.py      # Orchestrates the full analysis flow
-│   │   ├── vision.py        # Claude Vision / provider integration
-│   │   ├── mediapipe_utils.py
-│   │   ├── image_utils.py
-│   │   ├── color_utils.py
-│   │   ├── recommendations.py
-│   │   ├── skin_tone_analyzer.py
-│   │   └── config.py
-│   └── run.py               # Development server entrypoint
-├── documentation/
-│   └── US160_SegFormer.md   # Technical evaluation and hardware benchmark report for SegFormer selection
-└── training/
-    ├── checkpoints/         # BiSeNet weights
-    ├── SegFormer/
-│   │   └── benchmark.py     # Performance benchmarking script for SegFormer variants (B0-B5)
-    └── models/              # BiSeNet model architecture
-    
+     ├── README.md
+     ├── requirements.txt         # Project dependencies
+     ├── .env                     # API keys and environment variables (do not commit)
+     ├── data-collection/
+     │   ├── outputs/             # Local intermediate images and JSON outputs (git-ignored)
+     │   └── scripts/             # Face parsing, skin extraction, RGB estimation
+     │       ├── face_parsing_bisenet.py
+     │       ├── skin_region_extraction.py
+     │       └── rgb_estimation.py
+     ├── dev/
+     │   ├── app/
+     │   │   ├── __init__.py
+     │   │   ├── main.py          # FastAPI app, routes, CORS
+     │   │   ├── pipeline.py      # Orchestrates the full analysis flow
+     │   │   ├── vision.py        # Claude Vision / provider integration
+     │   │   ├── mediapipe_utils.py
+     │   │   ├── image_utils.py
+     │   │   ├── color_utils.py
+     │   │   ├── recommendations.py
+     │   │   ├── skin_tone_analyzer.py
+     │   │   └── config.py
+     │   └── run.py               # Development server entrypoint
+     ├── documentation/
+     │   ├── US160_SegFormer.md               # Technical evaluation and hardware benchmark report
+     │   ├── US186_API Description.md         # API contract and analysis output structure
+     │   └── MLOps_UseCase_API_Design.xlsx    # API design use case workbook
+     └── training/
+         ├── checkpoints/         # Model weights
+         │   ├── bisenet_best.pth
+         │   ├── 79999_iter.pth
+         │   └── SegFormer/       # SegFormer finetuned checkpoints
+         │       ├── segformer_b2_4class_port_wine_stain_finetune/
+         │       ├── segformer_b2_4class_vitiligo_finetune/
+         │       ├── segformer_b2_melasma_colab_export/
+         │       └── segformer_melasma_colab_export/
+         ├── SegFormer/
+         │   ├── benchmark.py     # Performance benchmarking script for SegFormer variants
+         │   ├── port_wine_stain/ # Training & evaluation for Port Wine Stain
+         │   │   ├── colab_port_wine_stain_training.ipynb
+         │   │   ├── train_port_wine_stain.py
+         │   │   └── evaluate_port_wine_stain.py
+         │   └── vitiligo/        # Training & evaluation for Vitiligo
+         │       ├── colab_vitiligo_training.ipynb
+         │       ├── train_vitiligo.py
+         │       └── evaluate_vitiligo.py
+         └── models/              # Model architecture definitions
+             ├── __init__.py
+             ├── model.py
+             ├── resnet.py
+             └── blaze_face_short_range.tflite
+
 ```
 
 ## Setup
@@ -123,3 +149,4 @@ Request: `multipart/form-data` with a `file` field. Supported formats are JPG, P
 ## Python Version
 
 Requires Python 3.13.
+
