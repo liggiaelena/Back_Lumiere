@@ -1,0 +1,18 @@
+{
+  "total_images_in_coco": 512,
+  "copied_images": 512,
+  "positive_masks": 255,
+  "empty_masks": 257,
+  "skipped_missing_images": 0,
+  "skipped_rle_annotations": 0,
+  "train_images": 358,
+  "val_images": 102,
+  "test_images": 52,
+  "selected_classes": {
+    "0": "melasma",
+    "3": "Hyperpigmentation",
+    "4": "Melasma",
+    "7": "hyperpigmen_D - v2 2024-11-05 2-24pm",
+    "8": "melasma"
+  }
+}
