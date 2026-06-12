@@ -8,6 +8,7 @@ def color_delta(hex1: str, hex2: str) -> float:
     return ((0.299*(r1-r2))**2 + (0.587*(g1-g2))**2 + (0.114*(b1-b2))**2)**0.5
 
 from app.recommendations import get_recommendations
+from app.medical_alert import apply_medical_triage, build_condition_map_from_regions
 
 def _average_hex(hex_list: list) -> str:
     rgbs = [hex_to_rgb(h) for h in hex_list if h and len(h) == 7]
@@ -78,7 +79,9 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
 
     recommendations = get_recommendations(tom_geral, subtom_geral, skin_hex=bisenet_hex)
 
-    return {
+    condition_map = build_condition_map_from_regions(regioes)
+
+    response = {
         "tom_geral_fitzpatrick":  tom_geral,
         "tom_geral_hex":          bisenet_hex or tom_geral_hex,
         "fitzpatrick_source":     fitzpatrick_source,
@@ -88,4 +91,7 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
         "imperfeicoes":           todas_imperf,
         "recommendations":        recommendations,
         "skin_tone":              skin_tone,
+        "condition_map":          condition_map,
     }
+
+    return apply_medical_triage(response)
