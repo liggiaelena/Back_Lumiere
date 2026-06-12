@@ -8,6 +8,7 @@ def color_delta(hex1: str, hex2: str) -> float:
     return ((0.299*(r1-r2))**2 + (0.587*(g1-g2))**2 + (0.114*(b1-b2))**2)**0.5
 
 from app.recommendations import get_recommendations
+from app.medical_alert import get_medical_alert
 
 def _average_hex(hex_list: list) -> str:
     rgbs = [hex_to_rgb(h) for h in hex_list if h and len(h) == 7]
@@ -88,4 +89,5 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
         "imperfeicoes":           todas_imperf,
         "recommendations":        recommendations,
         "skin_tone":              skin_tone,
+        "medical_alert": get_medical_alert(),
     }
