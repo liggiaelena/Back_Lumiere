@@ -1,5 +1,5 @@
-import json
 import secrets
+from psycopg2.extras import Json as PsycopgJson
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db import engine
@@ -13,7 +13,7 @@ def save_analysis(result: dict) -> str:
                 INSERT INTO analyses
                     (id, tom_geral_fitzpatrick, tom_geral_hex, fitzpatrick_source, subtom_predominante, result_json)
                 VALUES
-                    (:id, :fitzpatrick, :hex, :source, :subtom, CAST(:result_json AS JSONB))
+                    (:id, :fitzpatrick, :hex, :source, :subtom, :result_json)
             """),
             {
                 "id":          analysis_id,
@@ -21,7 +21,7 @@ def save_analysis(result: dict) -> str:
                 "hex":         result.get("tom_geral_hex"),
                 "source":      result.get("fitzpatrick_source"),
                 "subtom":      result.get("subtom_predominante"),
-                "result_json": json.dumps(result),
+                "result_json": PsycopgJson(result),
             },
         )
         session.commit()
