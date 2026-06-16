@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -16,6 +18,40 @@ app.add_middleware(
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
+
+
+# --- User registration (planned, disabled) ---
+class _Profile(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    age: Optional[int] = None
+    skin_type_self_assessed: Optional[str] = None
+
+
+class UserRegisterRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    profile: Optional[_Profile] = None
+
+
+@app.post(
+    "/api/users/register",
+    include_in_schema=False,
+    summary="(disabled) Register a new user",
+)
+async def register_user(req: UserRegisterRequest):
+    """User registration endpoint (disabled).
+
+    This route is intentionally disabled and returns HTTP 501. When enabled,
+    it should validate input, create a user record, and return the created
+    user's ID or a suitable response. For now it returns a clear 501 JSON.
+    """
+    return JSONResponse(
+        content={"detail": "User registration feature is planned but currently disabled."},
+        status_code=501,
+    )
+
 
 @app.get("/")
 def health():
