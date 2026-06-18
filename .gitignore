@@ -29,3 +29,7 @@ Thumbs.db
 
 .history
 training/datasets/
+
+# retraining outputs
+training/checkpoints/SegFormer/unified/tmp/
+*.zip

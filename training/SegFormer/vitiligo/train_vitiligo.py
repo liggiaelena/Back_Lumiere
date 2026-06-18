@@ -93,8 +93,6 @@ def get_device(device_name: str) -> torch.device:
         return torch.device(device_name)
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
     return torch.device("cpu")
 
 
@@ -216,17 +214,17 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Finetune SegFormer-B2 on vitiligo segmentation masks.")
     parser.add_argument(
         "--dataset-dir",
-        default="training/datasets/vitiligo/processed",
+        default="data-collection/vitiligo",
         help="Processed dataset directory with images, masks, and splits.",
     )
     parser.add_argument(
         "--checkpoint",
-        default="training/checkpoints/SegFormer/segformer_b2_4class_port_wine_stain_finetune/best",
+        default="training/checkpoints/SegFormer/port_wine_stain_v2/best",
         help="Starting checkpoint directory. Use the port wine stain 4-class checkpoint so the full class architecture is preserved.",
     )
     parser.add_argument(
         "--output-dir",
-        default="training/checkpoints/SegFormer/segformer_b2_4class_vitiligo_finetune",
+        default="training/checkpoints/SegFormer/vitiligo_v2",
         help="Directory for the finetuned model.",
     )
     parser.add_argument("--image-size", type=int, default=512)

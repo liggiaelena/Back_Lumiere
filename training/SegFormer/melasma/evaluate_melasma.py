@@ -11,7 +11,7 @@ from transformers import SegformerForSemanticSegmentation
 
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
-VITILIGO_CLASS_ID = 1
+MELASMA_CLASS_ID = 2
 
 
 def get_device(device_name: str) -> torch.device:
@@ -22,12 +22,17 @@ def get_device(device_name: str) -> torch.device:
     return torch.device("cpu")
 
 
-def find_image(image_dir: Path, stem: str) -> Path:
-    for ext in IMAGE_EXTENSIONS:
-        path = image_dir / f"{stem}{ext}"
+def find_image(image_dir: Path, item: str) -> Path:
+    item_path = Path(item)
+    if item_path.suffix:
+        path = image_dir / item_path.name
         if path.exists():
             return path
-    raise FileNotFoundError(f"No image found for {stem} in {image_dir}")
+    for ext in IMAGE_EXTENSIONS:
+        path = image_dir / f"{item}{ext}"
+        if path.exists():
+            return path
+    raise FileNotFoundError(f"No image found for {item} in {image_dir}")
 
 
 def compute_iou(pred: np.ndarray, target: np.ndarray, class_id: int) -> float:
@@ -42,15 +47,12 @@ def compute_iou(pred: np.ndarray, target: np.ndarray, class_id: int) -> float:
 
 def make_overlay(image: Image.Image, pred: np.ndarray, target: np.ndarray) -> Image.Image:
     rgb = np.array(image.convert("RGB"), dtype=np.float32)
-    pred_pos = pred == VITILIGO_CLASS_ID
-    target_pos = target == VITILIGO_CLASS_ID
+    pred_pos = pred == MELASMA_CLASS_ID
+    target_pos = target == MELASMA_CLASS_ID
 
     overlay = rgb.copy()
-    # Green = ground truth
     overlay[target_pos] = overlay[target_pos] * 0.45 + np.array([0, 220, 0]) * 0.55
-    # Cyan = prediction
-    overlay[pred_pos] = overlay[pred_pos] * 0.45 + np.array([0, 200, 230]) * 0.55
-    # Yellow = overlap (prediction and ground truth)
+    overlay[pred_pos] = overlay[pred_pos] * 0.45 + np.array([230, 140, 0]) * 0.55
     both = pred_pos & target_pos
     overlay[both] = overlay[both] * 0.35 + np.array([255, 255, 0]) * 0.65
     return Image.fromarray(np.clip(overlay, 0, 255).astype(np.uint8))
@@ -83,36 +85,38 @@ def evaluate(args):
     )
 
     rows = []
-    for idx, stem in enumerate(names):
-        image_path = find_image(image_dir, stem)
+    for idx, item in enumerate(names):
+        stem = Path(item).stem
+        image_path = find_image(image_dir, item)
         mask_path = mask_dir / f"{stem}.png"
 
         image = Image.open(image_path).convert("RGB")
         target = np.array(Image.open(mask_path).convert("L"))
+        target = np.where(target > 0, MELASMA_CLASS_ID, 0)
         input_tensor = image_transform(image).unsqueeze(0).to(device)
 
         outputs = model(pixel_values=input_tensor)
         logits = F.interpolate(outputs.logits, size=target.shape, mode="bilinear", align_corners=False)
         pred = logits.argmax(dim=1).squeeze(0).cpu().numpy().astype(np.uint8)
 
-        iou = compute_iou(pred, target, VITILIGO_CLASS_ID)
-        rows.append({"stem": stem, "vitiligo_iou": iou})
+        iou = compute_iou(pred, target, MELASMA_CLASS_ID)
+        rows.append({"stem": stem, "melasma_iou": iou})
 
         if idx < args.max_overlays:
             overlay = make_overlay(image, pred, target)
             overlay.save(overlay_dir / f"{stem}_overlay.png")
 
-    mean_iou = float(np.mean([row["vitiligo_iou"] for row in rows])) if rows else 0.0
+    mean_iou = float(np.mean([row["melasma_iou"] for row in rows])) if rows else 0.0
     summary = {
         "checkpoint": args.checkpoint,
         "dataset_dir": args.dataset_dir,
         "split": args.split,
         "samples": len(rows),
         "image_size": args.image_size,
-        "mean_vitiligo_iou": mean_iou,
+        "mean_melasma_iou": mean_iou,
         "overlay_legend": {
             "green": "ground truth",
-            "cyan": "prediction",
+            "orange": "prediction",
             "yellow": "prediction and ground truth overlap",
         },
         "per_sample": rows,
@@ -125,16 +129,10 @@ def evaluate(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Evaluate the vitiligo SegFormer checkpoint.")
-    parser.add_argument("--dataset-dir", default="data-collection/vitiligo")
-    parser.add_argument(
-        "--checkpoint",
-        default="training/checkpoints/SegFormer/vitiligo_v2/best",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="training/checkpoints/SegFormer/vitiligo_v2/evaluation",
-    )
+    parser = argparse.ArgumentParser(description="Evaluate the melasma SegFormer checkpoint.")
+    parser.add_argument("--dataset-dir", default="data-collection/melasma")
+    parser.add_argument("--checkpoint", default="training/checkpoints/SegFormer/melasma_v2/best")
+    parser.add_argument("--output-dir", default="training/checkpoints/SegFormer/melasma_v2/evaluation")
     parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--image-size", type=int, default=512)
     parser.add_argument("--max-overlays", type=int, default=12)

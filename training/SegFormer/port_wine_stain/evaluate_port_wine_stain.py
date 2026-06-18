@@ -19,8 +19,6 @@ def get_device(device_name: str) -> torch.device:
         return torch.device(device_name)
     if torch.cuda.is_available():
         return torch.device("cuda")
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
     return torch.device("cpu")
 
 
@@ -126,14 +124,14 @@ def evaluate(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate the port wine stain SegFormer checkpoint.")
-    parser.add_argument("--dataset-dir", default="training/datasets/port_wine_stain/processed")
+    parser.add_argument("--dataset-dir", default="data-collection/port_wine_stain/processed")
     parser.add_argument(
         "--checkpoint",
-        default="training/checkpoints/SegFormer/segformer_b2_4class_port_wine_stain_finetune/best",
+        default="training/checkpoints/SegFormer/port_wine_stain_v2/best",
     )
     parser.add_argument(
         "--output-dir",
-        default="training/checkpoints/SegFormer/segformer_b2_4class_port_wine_stain_finetune/evaluation",
+        default="training/checkpoints/SegFormer/port_wine_stain_v2/evaluation",
     )
     parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--image-size", type=int, default=512)
