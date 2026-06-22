@@ -77,9 +77,13 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
         for imp in data.get("imperfeicoes", []):
             todas_imperf.append({**imp, "regiao": region})
 
-    recommendations = get_recommendations(tom_geral, subtom_geral, skin_hex=bisenet_hex)
-
     condition_map = build_condition_map_from_regions(regioes)
+    recommendations = get_recommendations(
+        tom_geral,
+        subtom_geral,
+        skin_hex=bisenet_hex,
+        condition_map=condition_map,
+    )
 
     response = {
         "tom_geral_fitzpatrick":  tom_geral,

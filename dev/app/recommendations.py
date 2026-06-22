@@ -1,5 +1,3 @@
-from app.color_utils import color_delta
-
 _DATABASE = [
     # ── FENTY BEAUTY ──────────────────────────────────────────────────────────
     {"brand": "Fenty Beauty", "shade_name": "110N", "shade_code": "110N",
@@ -105,6 +103,63 @@ _UNDERTONE_FALLBACK = {
 
 # Max color-distance to consider a shade "close enough" to the skin tone
 _MAX_DELTA = 60
+_CONDITION_CONFIDENCE_THRESHOLD = 0.5
+
+_CONDITION_ALIASES = {
+    "vitiligo": "vitiligo",
+    "melasma": "melasma",
+    "melasma_like_hyperpigmentation": "melasma",
+    "port_wine_stain": "wine_stain",
+    "wine_stain": "wine_stain",
+    "wine stain": "wine_stain",
+}
+
+_CONDITION_RECOMMENDATIONS = {
+    "vitiligo": {
+        "condition": "vitiligo",
+        "products": [
+            "Dermatologically tested full-coverage foundation",
+        ],
+        "techniques": [
+            "Match foundation shade using healthy skin areas only; avoid sampling depigmented patches.",
+            "Build thin layers over affected areas instead of applying one heavy layer.",
+        ],
+        "shade_matching_note": "Tone selected from healthy skin only when condition masking is available.",
+    },
+    "melasma": {
+        "condition": "melasma",
+        "products": [
+            "Peach or orange color corrector before foundation",
+            "Daily broad-spectrum SPF under makeup",
+        ],
+        "techniques": [
+            "Apply peach/orange corrector only on hyperpigmented areas, then blend foundation over it.",
+            "Reapply SPF as needed during daytime wear.",
+        ],
+    },
+    "wine_stain": {
+        "condition": "wine_stain",
+        "products": [
+            "Green color corrector before foundation",
+            "Full-coverage foundation or concealer",
+        ],
+        "techniques": [
+            "Neutralize redness with a thin layer of green corrector before foundation.",
+            "Use full-coverage products in light layers and set gently to preserve coverage.",
+        ],
+    },
+}
+
+
+def _hex_to_rgb(hex_str: str) -> tuple:
+    h = hex_str.lstrip("#")
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+
+def _color_delta(hex1: str, hex2: str) -> float:
+    r1, g1, b1 = _hex_to_rgb(hex1)
+    r2, g2, b2 = _hex_to_rgb(hex2)
+    return ((0.299*(r1-r2))**2 + (0.587*(g1-g2))**2 + (0.114*(b1-b2))**2)**0.5
 
 
 def get_recommendations(
@@ -112,6 +167,7 @@ def get_recommendations(
     undertone: str,
     skin_hex: str | None = None,
     max_per_brand: int = 1,
+    condition_map: dict | None = None,
 ) -> list[dict]:
     """
     Return the best-matching shade per brand.
@@ -123,9 +179,11 @@ def get_recommendations(
     priority = _UNDERTONE_FALLBACK.get(undertone, ["neutro", "quente", "frio"])
 
     if skin_hex:
-        return _match_by_color(skin_hex, priority, max_per_brand)
+        recommendations = _match_by_color(skin_hex, priority, max_per_brand)
     else:
-        return _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand)
+        recommendations = _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand)
+
+    return _apply_condition_recommendations(recommendations, condition_map)
 
 
 def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> list:
@@ -136,7 +194,7 @@ def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> list:
     # Score every shade: primary sort = undertone priority tier, secondary = color delta
     scored = []
     for shade in _DATABASE:
-        delta = color_delta(skin_hex, shade["shade_hex"])
+        delta = _color_delta(skin_hex, shade["shade_hex"])
         if delta > _MAX_DELTA:
             continue
         tier = priority.index(shade["undertone"]) if shade["undertone"] in priority else len(priority)
@@ -157,7 +215,7 @@ def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> list:
             _DATABASE,
             key=lambda s: (
                 priority.index(s["undertone"]) if s["undertone"] in priority else len(priority),
-                color_delta(skin_hex, s["shade_hex"])
+                _color_delta(skin_hex, s["shade_hex"])
             )
         )
         for shade in all_scored:
@@ -191,3 +249,63 @@ def _format(shade: dict) -> dict:
         "price_range": shade["price_range"],
         "where_to_buy": shade["where_to_buy"],
     }
+
+
+def _apply_condition_recommendations(recommendations: list[dict], condition_map: dict | None) -> list[dict]:
+    condition_guidance = _get_condition_guidance(condition_map)
+
+    if not condition_guidance:
+        return recommendations
+
+    return [
+        {
+            **recommendation,
+            "condition_guidance": condition_guidance,
+        }
+        for recommendation in recommendations
+    ]
+
+
+def _get_condition_guidance(condition_map: dict | None) -> list[dict]:
+    if not isinstance(condition_map, dict):
+        return []
+
+    guidance = []
+    seen = set()
+
+    for raw_name, condition_value in condition_map.items():
+        canonical_name = _CONDITION_ALIASES.get(str(raw_name).strip().lower())
+
+        if not canonical_name or canonical_name in seen:
+            continue
+
+        if not _is_condition_detected(condition_value):
+            continue
+
+        guidance.append(_CONDITION_RECOMMENDATIONS[canonical_name])
+        seen.add(canonical_name)
+
+    return guidance
+
+
+def _is_condition_detected(condition_value) -> bool:
+    if isinstance(condition_value, dict):
+        if condition_value.get("detected") is True:
+            return True
+
+        confidence = condition_value.get("confidence")
+        if confidence is None:
+            return bool(condition_value)
+
+        try:
+            return float(confidence) >= _CONDITION_CONFIDENCE_THRESHOLD
+        except (TypeError, ValueError):
+            return False
+
+    if isinstance(condition_value, bool):
+        return condition_value
+
+    if isinstance(condition_value, (int, float)):
+        return float(condition_value) >= _CONDITION_CONFIDENCE_THRESHOLD
+
+    return bool(condition_value)
