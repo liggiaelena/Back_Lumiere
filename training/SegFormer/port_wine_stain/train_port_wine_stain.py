@@ -87,6 +87,33 @@ def get_device(device_name: str) -> torch.device:
     return torch.device("cpu")
 
 
+def load_training_state(state_path: Path, device: torch.device) -> dict:
+    return torch.load(state_path, map_location=device, weights_only=False)
+
+
+def save_training_state(
+    state_path: Path,
+    epoch: int,
+    model,
+    optimizer,
+    best_iou: float,
+    history: list[dict],
+    args,
+) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "best_iou": best_iou,
+            "history": history,
+            "args": vars(args),
+        },
+        state_path,
+    )
+
+
 @torch.no_grad()
 def evaluate(model, loader, device):
     model.eval()
@@ -138,8 +165,22 @@ def train(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     best_iou = -1.0
     history = []
+    start_epoch = 1
+    training_state_path = Path(args.resume_state) if args.resume_state else output_dir / "training_state.pt"
 
-    for epoch in range(1, args.epochs + 1):
+    if args.resume:
+        if training_state_path.exists():
+            state = load_training_state(training_state_path, device)
+            model.load_state_dict(state["model_state_dict"])
+            optimizer.load_state_dict(state["optimizer_state_dict"])
+            best_iou = float(state.get("best_iou", best_iou))
+            history = state.get("history", history)
+            start_epoch = int(state.get("epoch", 0)) + 1
+            print(f"resumed_training_state={training_state_path} start_epoch={start_epoch}")
+        else:
+            print(f"resume_state_not_found={training_state_path}; starting fresh")
+
+    for epoch in range(start_epoch, args.epochs + 1):
         model.train()
         train_losses = []
         for batch in train_loader:
@@ -179,6 +220,9 @@ def train(args):
             best_iou = metrics["port_wine_stain_iou"]
             model.save_pretrained(output_dir / "best")
 
+        (output_dir / "training_history.json").write_text(json.dumps(history, indent=2) + "\n")
+        save_training_state(training_state_path, epoch, model, optimizer, best_iou, history, args)
+
     model.save_pretrained(output_dir / "last")
     (output_dir / "training_history.json").write_text(json.dumps(history, indent=2) + "\n")
     (output_dir / "label_mapping.json").write_text(
@@ -203,7 +247,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output-dir",
-        default="training/checkpoints/SegFormer/port_wine_stain_v2",
+        default="training/checkpoints/SegFormer/unified/tmp/port_wine_stain",
         help="Directory for the finetuned model.",
     )
     parser.add_argument("--image-size", type=int, default=512)
@@ -217,6 +261,11 @@ def parse_args():
         choices=["auto", "cuda", "mps", "cpu"],
         default="auto",
         help="Training device. auto uses CUDA, then Apple MPS, then CPU.",
+    )
+    parser.add_argument("--resume", action="store_true", help="Resume from training_state.pt if it exists.")
+    parser.add_argument(
+        "--resume-state",
+        help="Path to a saved training_state.pt. Defaults to <output-dir>/training_state.pt.",
     )
     return parser.parse_args()
 

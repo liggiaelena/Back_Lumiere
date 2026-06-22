@@ -127,11 +127,11 @@ def parse_args():
     parser.add_argument("--dataset-dir", default="data-collection/port_wine_stain/processed")
     parser.add_argument(
         "--checkpoint",
-        default="training/checkpoints/SegFormer/port_wine_stain_v2/best",
+        default="training/checkpoints/SegFormer/unified/tmp/port_wine_stain/best",
     )
     parser.add_argument(
         "--output-dir",
-        default="training/checkpoints/SegFormer/port_wine_stain_v2/evaluation",
+        default="training/checkpoints/SegFormer/unified/tmp/port_wine_stain/evaluation",
     )
     parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--image-size", type=int, default=512)

@@ -1,17 +1,65 @@
 {
-  "model_name": "lumiere_segformer_unified",
-  "source_checkpoint": "training/checkpoints/SegFormer/unified/tmp/vitiligo/best",
-  "training_order": [
-    "melasma",
-    "port_wine_stain",
-    "vitiligo"
-  ],
+  "model_name": "lumiere_segformer_unified_joint",
+  "training_mode": "joint_multitask",
   "class_mapping": {
     "0": "background",
     "1": "vitiligo",
     "2": "melasma_like_hyperpigmentation",
     "3": "port_wine_stain"
   },
-  "run_name": "experiment_lr1e4",
-  "exported_at": "2026-06-18T02:01:10.358915+00:00"
+  "datasets": {
+    "melasma": {
+      "path": "data-collection/melasma",
+      "train_samples": 358,
+      "class_id": 2
+    },
+    "port_wine_stain": {
+      "path": "data-collection/port_wine_stain/processed",
+      "train_samples": 100,
+      "class_id": 3
+    },
+    "vitiligo": {
+      "path": "data-collection/vitiligo",
+      "train_samples": 70,
+      "class_id": 1
+    }
+  },
+  "hyperparameters": {
+    "checkpoint": "training/checkpoints/SegFormer/unified/vitfirst_warmup_512_refine/best",
+    "output_dir": "training/checkpoints/SegFormer/unified/joint_mps_512_vitfirst_refine_rebalance",
+    "melasma_dataset": "data-collection/melasma",
+    "port_wine_stain_dataset": "data-collection/port_wine_stain/processed",
+    "vitiligo_dataset": "data-collection/vitiligo",
+    "image_size": 512,
+    "batch_size": 1,
+    "eval_batch_size": 1,
+    "epochs": 5,
+    "learning_rate": 2e-06,
+    "min_lr": 1e-06,
+    "weight_decay": 0.01,
+    "class_weights": [
+      0.2,
+      4.0,
+      2.5,
+      3.5
+    ],
+    "dice_weight": 0.0,
+    "min_iou_weight": 0.7,
+    "max_grad_norm": 1.0,
+    "num_workers": 0,
+    "device": "mps",
+    "scheduler": "cosine",
+    "sampling": "balanced",
+    "sampling_ratios": [
+      "melasma=2",
+      "port_wine_stain=3",
+      "vitiligo=2"
+    ],
+    "samples_per_epoch": null,
+    "seed": 42,
+    "pin_memory": false,
+    "no_augment": false,
+    "resume": false,
+    "resume_state": null
+  }
 }

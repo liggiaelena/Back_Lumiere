@@ -1,0 +1,75 @@
+{
+  "checkpoint": "training/checkpoints/SegFormer/unified/best",
+  "dataset_dir": "data-collection/vitiligo",
+  "split": "test",
+  "samples": 15,
+  "image_size": 512,
+  "mean_vitiligo_iou": 0.43208820982499174,
+  "overlay_legend": {
+    "green": "ground truth",
+    "cyan": "prediction",
+    "yellow": "prediction and ground truth overlap"
+  },
+  "per_sample": [
+    {
+      "stem": "101",
+      "vitiligo_iou": 0.3639803478743215
+    },
+    {
+      "stem": "10183",
+      "vitiligo_iou": 0.3154470883329944
+    },
+    {
+      "stem": "10703",
+      "vitiligo_iou": 0.49194570799258264
+    },
+    {
+      "stem": "10708",
+      "vitiligo_iou": 0.43350683088290937
+    },
+    {
+      "stem": "108",
+      "vitiligo_iou": 0.5016795158259223
+    },
+    {
+      "stem": "112",
+      "vitiligo_iou": 0.42132772196578877
+    },
+    {
+      "stem": "20",
+      "vitiligo_iou": 0.4484603128150099
+    },
+    {
+      "stem": "36",
+      "vitiligo_iou": 0.35030629365172267
+    },
+    {
+      "stem": "61",
+      "vitiligo_iou": 0.4591543513957307
+    },
+    {
+      "stem": "95",
+      "vitiligo_iou": 0.45781231030715064
+    },
+    {
+      "stem": "images--18-_jpg.rf.cc98945983a90823bc2294fc4212091b",
+      "vitiligo_iou": 0.497593064286215
+    },
+    {
+      "stem": "istockphoto-1321678576-612x612",
+      "vitiligo_iou": 0.43725072051252306
+    },
+    {
+      "stem": "portrait-beautiful-south-asian-woman-260nw-2159731735",
+      "vitiligo_iou": 0.40737523027968514
+    },
+    {
+      "stem": "portrait-smiling-young-african-casual-260nw-2021927762",
+      "vitiligo_iou": 0.42563953729424936
+    },
+    {
+      "stem": "roi192_jpg.rf.6f663403e5349f836bdfe5fb502e5be8",
+      "vitiligo_iou": 0.469844113958072
+    }
+  ]
+}

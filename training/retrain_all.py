@@ -83,6 +83,13 @@ def format_delta(value: float | None) -> str:
     return f"{value:+.4f}"
 
 
+def params_for_disease(row: dict[str, Any], disease: str) -> dict[str, Any]:
+    stage_params = row.get("stage_hyperparameters", {})
+    if isinstance(stage_params, dict) and isinstance(stage_params.get(disease), dict):
+        return stage_params[disease]
+    return row.get("hyperparameters", {})
+
+
 def generate_report(experiments_path: Path, report_path: Path) -> None:
     experiments = ensure_baseline(experiments_path)
     baseline = next((row for row in experiments if row.get("run_name") == "baseline"), None)
@@ -112,7 +119,7 @@ def generate_report(experiments_path: Path, report_path: Path) -> None:
         best_run = None
         best_test = None
         for row in experiments:
-            params = row.get("hyperparameters", {})
+            params = params_for_disease(row, disease)
             result = row.get("results", {}).get(disease, {})
             test_iou = result.get("test_iou")
             delta = None
@@ -159,22 +166,49 @@ def build_step_commands(args) -> list[dict[str, Any]]:
     port_dir = checkpoint_root / "port_wine_stain"
     vitiligo_dir = checkpoint_root / "vitiligo"
 
-    common = [
-        "--image-size",
-        str(args.image_size),
-        "--batch-size",
-        str(args.batch_size),
-        "--epochs",
-        str(args.epochs),
-        "--learning-rate",
-        str(args.learning_rate),
-        "--weight-decay",
-        str(args.weight_decay),
-        "--num-workers",
-        str(args.num_workers),
-        "--device",
-        args.device,
-    ]
+    def stage_params(name: str) -> dict[str, Any]:
+        return {
+            "learning_rate": getattr(args, f"{name}_learning_rate") or args.learning_rate,
+            "epochs": getattr(args, f"{name}_epochs") or args.epochs,
+            "batch_size": getattr(args, f"{name}_batch_size") or args.batch_size,
+            "weight_decay": getattr(args, f"{name}_weight_decay") or args.weight_decay,
+            "device": getattr(args, f"{name}_device") or args.device,
+        }
+
+    def train_common(params: dict[str, Any]) -> list[str]:
+        common = [
+            "--image-size",
+            str(args.image_size),
+            "--batch-size",
+            str(params["batch_size"]),
+            "--epochs",
+            str(params["epochs"]),
+            "--learning-rate",
+            str(params["learning_rate"]),
+            "--weight-decay",
+            str(params["weight_decay"]),
+            "--num-workers",
+            str(args.num_workers),
+            "--device",
+            params["device"],
+        ]
+        if args.resume_training:
+            common.append("--resume")
+        return common
+
+    melasma_params = stage_params("melasma")
+    port_params = stage_params("port_wine_stain")
+    vitiligo_params = stage_params("vitiligo")
+
+    def eval_common(params: dict[str, Any]) -> list[str]:
+        return [
+            "--image-size",
+            str(args.image_size),
+            "--max-overlays",
+            str(args.max_overlays),
+            "--device",
+            params["device"],
+        ]
 
     return [
         {
@@ -188,7 +222,7 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 args.initial_checkpoint,
                 "--output-dir",
                 str(melasma_dir),
-                *common,
+                *train_common(melasma_params),
             ],
             "evaluate": [
                 sys.executable,
@@ -201,13 +235,9 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 str(melasma_dir / "evaluation"),
                 "--split",
                 "test",
-                "--image-size",
-                str(args.image_size),
-                "--max-overlays",
-                str(args.max_overlays),
-                "--device",
-                args.device,
+                *eval_common(melasma_params),
             ],
+            "hyperparameters": melasma_params,
             "history": melasma_dir / "training_history.json",
             "history_metric": "val_melasma_iou",
             "metrics": melasma_dir / "evaluation" / "test_metrics.json",
@@ -224,7 +254,7 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 str(melasma_dir / "best"),
                 "--output-dir",
                 str(port_dir),
-                *common,
+                *train_common(port_params),
             ],
             "evaluate": [
                 sys.executable,
@@ -237,13 +267,9 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 str(port_dir / "evaluation"),
                 "--split",
                 "test",
-                "--image-size",
-                str(args.image_size),
-                "--max-overlays",
-                str(args.max_overlays),
-                "--device",
-                args.device,
+                *eval_common(port_params),
             ],
+            "hyperparameters": port_params,
             "history": port_dir / "training_history.json",
             "history_metric": "val_port_wine_stain_iou",
             "metrics": port_dir / "evaluation" / "test_metrics.json",
@@ -260,7 +286,7 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 str(port_dir / "best"),
                 "--output-dir",
                 str(vitiligo_dir),
-                *common,
+                *train_common(vitiligo_params),
             ],
             "evaluate": [
                 sys.executable,
@@ -273,13 +299,9 @@ def build_step_commands(args) -> list[dict[str, Any]]:
                 str(vitiligo_dir / "evaluation"),
                 "--split",
                 "test",
-                "--image-size",
-                str(args.image_size),
-                "--max-overlays",
-                str(args.max_overlays),
-                "--device",
-                args.device,
+                *eval_common(vitiligo_params),
             ],
+            "hyperparameters": vitiligo_params,
             "history": vitiligo_dir / "training_history.json",
             "history_metric": "val_vitiligo_iou",
             "metrics": vitiligo_dir / "evaluation" / "test_metrics.json",
@@ -309,6 +331,7 @@ def append_experiment(args, steps: list[dict[str, Any]]) -> None:
             "batch_size": args.batch_size,
             "weight_decay": args.weight_decay,
         },
+        "stage_hyperparameters": {step["name"]: step["hyperparameters"] for step in steps},
         "results": results,
     }
     experiments.append(entry)
@@ -336,6 +359,29 @@ def export_final_model(args) -> None:
         "model_name": "lumiere_segformer_unified",
         "source_checkpoint": source.as_posix(),
         "training_order": ["melasma", "port_wine_stain", "vitiligo"],
+        "stage_hyperparameters": {
+            "melasma": {
+                "learning_rate": args.melasma_learning_rate or args.learning_rate,
+                "epochs": args.melasma_epochs or args.epochs,
+                "batch_size": args.melasma_batch_size or args.batch_size,
+                "weight_decay": args.melasma_weight_decay or args.weight_decay,
+                "device": args.melasma_device or args.device,
+            },
+            "port_wine_stain": {
+                "learning_rate": args.port_wine_stain_learning_rate or args.learning_rate,
+                "epochs": args.port_wine_stain_epochs or args.epochs,
+                "batch_size": args.port_wine_stain_batch_size or args.batch_size,
+                "weight_decay": args.port_wine_stain_weight_decay or args.weight_decay,
+                "device": args.port_wine_stain_device or args.device,
+            },
+            "vitiligo": {
+                "learning_rate": args.vitiligo_learning_rate or args.learning_rate,
+                "epochs": args.vitiligo_epochs or args.epochs,
+                "batch_size": args.vitiligo_batch_size or args.batch_size,
+                "weight_decay": args.vitiligo_weight_decay or args.weight_decay,
+                "device": args.vitiligo_device or args.device,
+            },
+        },
         "class_mapping": {
             "0": "background",
             "1": "vitiligo",
@@ -358,6 +404,21 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, required=True)
     parser.add_argument("--weight-decay", type=float, required=True)
     parser.add_argument("--run-name", required=True)
+    parser.add_argument("--melasma-learning-rate", type=float)
+    parser.add_argument("--melasma-epochs", type=int)
+    parser.add_argument("--melasma-batch-size", type=int)
+    parser.add_argument("--melasma-weight-decay", type=float)
+    parser.add_argument("--melasma-device", choices=["auto", "cuda", "mps", "cpu"])
+    parser.add_argument("--port-wine-stain-learning-rate", type=float)
+    parser.add_argument("--port-wine-stain-epochs", type=int)
+    parser.add_argument("--port-wine-stain-batch-size", type=int)
+    parser.add_argument("--port-wine-stain-weight-decay", type=float)
+    parser.add_argument("--port-wine-stain-device", choices=["auto", "cuda", "mps", "cpu"])
+    parser.add_argument("--vitiligo-learning-rate", type=float)
+    parser.add_argument("--vitiligo-epochs", type=int)
+    parser.add_argument("--vitiligo-batch-size", type=int)
+    parser.add_argument("--vitiligo-weight-decay", type=float)
+    parser.add_argument("--vitiligo-device", choices=["auto", "cuda", "mps", "cpu"])
     parser.add_argument("--image-size", type=int, default=512)
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default="auto")
@@ -380,6 +441,11 @@ def parse_args():
         action="store_true",
         help="Skip test evaluation and read existing evaluation metrics.",
     )
+    parser.add_argument(
+        "--resume-training",
+        action="store_true",
+        help="Pass --resume to each training stage and continue from <stage-output>/training_state.pt when present.",
+    )
     return parser.parse_args()
 
 
@@ -394,7 +460,7 @@ def validate_device(device_name: str) -> None:
     if device_name == "cuda" and not torch.cuda.is_available():
         raise RuntimeError(
             "CUDA was requested, but this PyTorch environment does not have CUDA available. "
-            "Use '--device auto' or '--device mps' on Apple Silicon, or run with '--device cuda' in Colab/NVIDIA GPU."
+            "Use '--device auto' for a CPU local run, or run with '--device cuda' in Colab/NVIDIA GPU."
         )
     if device_name == "mps" and not torch.backends.mps.is_available():
         raise RuntimeError(
@@ -406,6 +472,9 @@ def validate_device(device_name: str) -> None:
 def main() -> None:
     args = parse_args()
     validate_device(args.device)
+    for device_name in (args.melasma_device, args.port_wine_stain_device, args.vitiligo_device):
+        if device_name:
+            validate_device(device_name)
     steps = build_step_commands(args)
     ensure_baseline(Path(args.experiments_path))
 

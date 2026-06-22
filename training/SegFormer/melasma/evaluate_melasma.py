@@ -131,8 +131,8 @@ def evaluate(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate the melasma SegFormer checkpoint.")
     parser.add_argument("--dataset-dir", default="data-collection/melasma")
-    parser.add_argument("--checkpoint", default="training/checkpoints/SegFormer/melasma_v2/best")
-    parser.add_argument("--output-dir", default="training/checkpoints/SegFormer/melasma_v2/evaluation")
+    parser.add_argument("--checkpoint", default="training/checkpoints/SegFormer/unified/tmp/melasma/best")
+    parser.add_argument("--output-dir", default="training/checkpoints/SegFormer/unified/tmp/melasma/evaluation")
     parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--image-size", type=int, default=512)
     parser.add_argument("--max-overlays", type=int, default=12)

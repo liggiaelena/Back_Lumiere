@@ -1,0 +1,87 @@
+{
+  "checkpoint": "training/checkpoints/SegFormer/unified/best",
+  "dataset_dir": "data-collection/port_wine_stain/processed",
+  "split": "test",
+  "samples": 18,
+  "image_size": 512,
+  "mean_port_wine_stain_iou": 0.4613353142512635,
+  "overlay_legend": {
+    "green": "ground truth",
+    "magenta": "prediction",
+    "yellow": "prediction and ground truth overlap"
+  },
+  "per_sample": [
+    {
+      "stem": "port119",
+      "port_wine_stain_iou": 0.5873025513328576
+    },
+    {
+      "stem": "port120",
+      "port_wine_stain_iou": 0.872986732348713
+    },
+    {
+      "stem": "port121",
+      "port_wine_stain_iou": 0.34746268656716417
+    },
+    {
+      "stem": "port122",
+      "port_wine_stain_iou": 0.28095772540216984
+    },
+    {
+      "stem": "port123",
+      "port_wine_stain_iou": 0.437094682230869
+    },
+    {
+      "stem": "port124",
+      "port_wine_stain_iou": 0.694212849435998
+    },
+    {
+      "stem": "port125",
+      "port_wine_stain_iou": 0.407479960609494
+    },
+    {
+      "stem": "port126",
+      "port_wine_stain_iou": 0.5852524712797221
+    },
+    {
+      "stem": "port127",
+      "port_wine_stain_iou": 0.5516132872961067
+    },
+    {
+      "stem": "port128",
+      "port_wine_stain_iou": 0.6635220125786163
+    },
+    {
+      "stem": "port129",
+      "port_wine_stain_iou": 0.6427419354838709
+    },
+    {
+      "stem": "port130",
+      "port_wine_stain_iou": 0.6041123518126814
+    },
+    {
+      "stem": "port131",
+      "port_wine_stain_iou": 0.14645207676566563
+    },
+    {
+      "stem": "port132",
+      "port_wine_stain_iou": 0.7174042924766764
+    },
+    {
+      "stem": "port133",
+      "port_wine_stain_iou": 0.39239226589157084
+    },
+    {
+      "stem": "port134",
+      "port_wine_stain_iou": 0.2105726872246696
+    },
+    {
+      "stem": "port135",
+      "port_wine_stain_iou": 0.1624750877858973
+    },
+    {
+      "stem": "port136",
+      "port_wine_stain_iou": 0.0
+    }
+  ]
+}

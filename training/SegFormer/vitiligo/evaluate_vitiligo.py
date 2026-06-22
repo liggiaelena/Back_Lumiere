@@ -89,6 +89,7 @@ def evaluate(args):
 
         image = Image.open(image_path).convert("RGB")
         target = np.array(Image.open(mask_path).convert("L"))
+        target = np.where(target > 0, VITILIGO_CLASS_ID, 0)
         input_tensor = image_transform(image).unsqueeze(0).to(device)
 
         outputs = model(pixel_values=input_tensor)
@@ -129,11 +130,11 @@ def parse_args():
     parser.add_argument("--dataset-dir", default="data-collection/vitiligo")
     parser.add_argument(
         "--checkpoint",
-        default="training/checkpoints/SegFormer/vitiligo_v2/best",
+        default="training/checkpoints/SegFormer/unified/tmp/vitiligo/best",
     )
     parser.add_argument(
         "--output-dir",
-        default="training/checkpoints/SegFormer/vitiligo_v2/evaluation",
+        default="training/checkpoints/SegFormer/unified/tmp/vitiligo/evaluation",
     )
     parser.add_argument("--split", choices=["train", "val", "test"], default="test")
     parser.add_argument("--image-size", type=int, default=512)

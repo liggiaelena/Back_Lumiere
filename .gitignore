@@ -31,5 +31,5 @@ Thumbs.db
 training/datasets/
 
 # retraining outputs
-training/checkpoints/SegFormer/unified/tmp/
+training_state.pt
 *.zip
