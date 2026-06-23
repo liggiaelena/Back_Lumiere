@@ -29,3 +29,7 @@ Thumbs.db
 
 .history
 training/datasets/
+
+*.rar
+*.db
+dev/debug_outputs/
