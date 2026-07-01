@@ -138,7 +138,7 @@ def _run_bisenet_and_skin_tone(img_array: np.ndarray, condition_mask: np.ndarray
     )
 
 
-async def run_pipeline(img_rgb) -> dict:
+async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     img_data = preprocess(img_rgb)
     img_array = img_data["array"]
 
@@ -164,6 +164,7 @@ async def run_pipeline(img_rgb) -> dict:
             region,
             data["base64"],
             condition_map=condition_map,
+            lang=lang,
         )
         for region, data in crops.items()
     ]

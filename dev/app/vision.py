@@ -56,7 +56,7 @@ Required structure:
       "reason": "short non-diagnostic reason"
     }}
   }},
-  "notas": "observation in English, maximum 1 sentence"
+  "notas": "observation in {target_lang}, maximum 1 sentence"
 }}
 
 Fitzpatrick scale: 1=very light, 2=light, 3=medium light, 4=medium, 5=dark, 6=very dark.
@@ -67,7 +67,21 @@ Otherwise keep melanoma_suspected confidence low.
 Analyze only what is visible — do not invent data."""
 
 
-def _build_prompt(region_name: str, condition_map: Optional[Dict[str, Any]] = None) -> str:
+LANGUAGE_MAP = {
+    "en": "English",
+    "tw": "Traditional Chinese",
+    "zh": "Simplified Chinese",
+    "pt": "Portuguese",
+    "fr": "French",
+    "tr": "Turkish",
+}
+
+
+def _build_prompt(
+    region_name: str,
+    condition_map: Optional[Dict[str, Any]] = None,
+    lang: str = "en",
+) -> str:
     """
     Build Claude prompt with SegFormer condition_map as context.
 
@@ -109,9 +123,11 @@ def _build_prompt(region_name: str, condition_map: Optional[Dict[str, Any]] = No
             indent=2,
         )
 
+    target_lang = LANGUAGE_MAP.get(lang, "English")
     return BASE_PROMPT.format(
         region_name=region_name,
         condition_context=condition_context,
+        target_lang=target_lang,
     )
 
 
@@ -119,6 +135,7 @@ async def analyze_region(
     region_name: str,
     b64_crop: str,
     condition_map: Optional[Dict[str, Any]] = None,
+    lang: str = "en",
 ) -> dict:
     """
     Analyze one facial region crop.
@@ -133,6 +150,7 @@ async def analyze_region(
     prompt = _build_prompt(
         region_name=region_name,
         condition_map=condition_map,
+        lang=lang,
     )
 
     if provider == "anthropic":

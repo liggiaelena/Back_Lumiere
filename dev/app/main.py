@@ -64,7 +64,7 @@ def health():
     return {"status": "ok", "service": "skin-analyzer", "db": db_status}
 
 @app.post("/api/analyze")
-async def analyze(file: UploadFile = File(...)):
+async def analyze(file: UploadFile = File(...), lang: str = "en"):
     ALLOWED = {"image/jpeg", "image/png", "image/webp"}
     if file.content_type not in ALLOWED:
         raise HTTPException(400, detail="Invalid format. Use JPG, PNG or WebP.")
@@ -76,7 +76,7 @@ async def analyze(file: UploadFile = File(...)):
 
     try:
         img_rgb = load_and_validate(contents)
-        result = await run_pipeline(img_rgb)
+        result = await run_pipeline(img_rgb, lang=lang)
         analysis_id = save_analysis(result)
         result["id"] = analysis_id
         return JSONResponse(content=result)
