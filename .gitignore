@@ -34,11 +34,15 @@ training/datasets/
 # retraining outputs
 training_state.pt
 *.zip
+*.rar
 
 # Product database builder local inputs/outputs
 dev/product_database_builder/data/raw/
 dev/product_database_builder/generated/
-
-*.rar
-*.db
 dev/debug_outputs/
+
+# SQLite database files
+*.db
+
+
+

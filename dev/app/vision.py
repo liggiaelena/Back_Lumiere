@@ -159,32 +159,36 @@ async def analyze_region(
         if client is None:
             return _fallback_response()
 
-        result = await loop.run_in_executor(
-            None,
-            lambda: client.messages.create(
-                model="claude-opus-4-5",
-                max_tokens=512,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": b64_crop,
+        try:
+            result = await loop.run_in_executor(
+                None,
+                lambda: client.messages.create(
+                    model="claude-opus-4-5",
+                    max_tokens=512,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": "image/jpeg",
+                                        "data": b64_crop,
+                                    },
                                 },
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt,
-                            },
-                        ],
-                    }
-                ],
-            ),
-        )
+                                {
+                                    "type": "text",
+                                    "text": prompt,
+                                },
+                            ],
+                        }
+                    ],
+                ),
+            )
+        except Exception as exc:
+            print(f"[Vision] Anthropic analysis failed. Using fallback response. Error: {exc}")
+            return _fallback_response()
 
         raw = result.content[0].text.strip()
 

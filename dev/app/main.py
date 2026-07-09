@@ -14,7 +14,7 @@ app = FastAPI(title="Skin Analyzer API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://localhost:\d+",
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )

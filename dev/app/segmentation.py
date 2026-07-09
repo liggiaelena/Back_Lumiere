@@ -15,16 +15,29 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # Unified condition mask labels:
 #   0 = background / normal
 #   1 = vitiligo
-#   2 = melasma
+#   2 = melasma / hyperpigmentation
 #   3 = wine_stain
+#   4 = forehead_wrinkle
+#   5 = crow_s_feet
+#   6 = nasolabial_fold
 UNIFIED_LABELS = {
     "background": 0,
     "vitiligo": 1,
     "melasma": 2,
     "wine_stain": 3,
+    "forehead_wrinkle": 4,
+    "crow_s_feet": 5,
+    "nasolabial_fold": 6,
 }
 
-CONDITIONS = ["vitiligo", "melasma", "wine_stain"]
+CONDITIONS = [
+    "vitiligo",
+    "melasma",
+    "wine_stain",
+    "forehead_wrinkle",
+    "crow_s_feet",
+    "nasolabial_fold",
+]
 
 # If prediction area is smaller than this percentage of the full image,
 # it is treated as noise.
@@ -53,6 +66,8 @@ SEGFORMER_ROOT = PROJECT_DIR / "training" / "checkpoints" / "SegFormer"
 # A single 4-class model avoids running three independently-trained,
 # per-disease detectors that can disagree on the same region.
 DEFAULT_UNIFIED_MODEL_CANDIDATES = [
+    "training/checkpoints/SegFormer/segformer_melasma_model_2/best",
+    "training/checkpoints/SegFormer/segformer_melasma_model_2/last",
     "training/checkpoints/SegFormer/unified/best",
     "training/checkpoints/SegFormer/unified/last",
 ]
@@ -76,6 +91,9 @@ def _normalize_label_name(name: str) -> str:
         "melasma_like_hyperpigmentation": "melasma",
         "hyperpigmentation": "melasma",
         "black_spot": "melasma",
+        "dark_spot": "melasma",
+        "brown_spot": "melasma",
+        "pigmentation": "melasma",
 
         "port_wine_stain": "wine_stain",
         "port_wine": "wine_stain",
@@ -83,6 +101,18 @@ def _normalize_label_name(name: str) -> str:
         "portwine_stain": "wine_stain",
         "wine": "wine_stain",
         "wine_stain": "wine_stain",
+
+        "forehead_wrinkle": "forehead_wrinkle",
+        "forehead_wrinkles": "forehead_wrinkle",
+        "wrinkle": "forehead_wrinkle",
+        "wrinkles": "forehead_wrinkle",
+        "crow_s_feet": "crow_s_feet",
+        "crows_feet": "crow_s_feet",
+        "crow_feet": "crow_s_feet",
+        "nasolabial_fold": "nasolabial_fold",
+        "nasolabial_folds": "nasolabial_fold",
+        "smile_line": "nasolabial_fold",
+        "smile_lines": "nasolabial_fold",
     }
 
     return aliases.get(name, name)
@@ -312,6 +342,9 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
         "vitiligo": {"detected": False, "area_percent": 0, "zones": []},
         "melasma": {"detected": False, "area_percent": 0, "zones": []},
         "wine_stain": {"detected": False, "area_percent": 0, "zones": []},
+        "forehead_wrinkle": {"detected": False, "area_percent": 0, "zones": []},
+        "crow_s_feet": {"detected": False, "area_percent": 0, "zones": []},
+        "nasolabial_fold": {"detected": False, "area_percent": 0, "zones": []},
     }
 
     for condition in CONDITIONS:

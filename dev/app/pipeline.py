@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
+import base64
 
 import asyncio
 
@@ -23,6 +24,25 @@ except Exception as exc:
     get_condition_outputs = None
 
 
+CONDITION_COLORS = {
+    1: [255, 255, 255],  # vitiligo
+    2: [255, 180, 0],    # melasma / dark spots
+    3: [255, 0, 0],      # wine_stain
+    4: [0, 210, 255],    # forehead wrinkle
+    5: [185, 100, 255],  # crow's feet
+    6: [0, 220, 120],    # nasolabial fold
+}
+
+CONDITION_LEGEND = [
+    {"label": 1, "key": "vitiligo", "name": "Vitiligo", "color": "#ffffff"},
+    {"label": 2, "key": "melasma", "name": "Melasma / dark spots", "color": "#ffb400"},
+    {"label": 3, "key": "wine_stain", "name": "Port-wine stain", "color": "#ff0000"},
+    {"label": 4, "key": "forehead_wrinkle", "name": "Forehead wrinkle", "color": "#00d2ff"},
+    {"label": 5, "key": "crow_s_feet", "name": "Crow's feet", "color": "#b964ff"},
+    {"label": 6, "key": "nasolabial_fold", "name": "Nasolabial fold", "color": "#00dc78"},
+]
+
+
 def _empty_condition_outputs(img_array: np.ndarray) -> dict:
     h, w = img_array.shape[:2]
 
@@ -32,7 +52,58 @@ def _empty_condition_outputs(img_array: np.ndarray) -> dict:
             "vitiligo": {"detected": False, "area_percent": 0, "zones": []},
             "melasma": {"detected": False, "area_percent": 0, "zones": []},
             "wine_stain": {"detected": False, "area_percent": 0, "zones": []},
+            "forehead_wrinkle": {"detected": False, "area_percent": 0, "zones": []},
+            "crow_s_feet": {"detected": False, "area_percent": 0, "zones": []},
+            "nasolabial_fold": {"detected": False, "area_percent": 0, "zones": []},
         },
+    }
+
+
+def _build_condition_overlay(img_array: np.ndarray, condition_mask: np.ndarray) -> dict:
+    color_mask = np.zeros_like(img_array, dtype=np.uint8)
+
+    for label_value, color in CONDITION_COLORS.items():
+        color_mask[condition_mask == label_value] = color
+
+    highlighted = condition_mask > 0
+    overlay = img_array.astype(np.uint8).copy()
+
+    if highlighted.any():
+        blended = cv2.addWeighted(
+            img_array.astype(np.uint8),
+            0.68,
+            color_mask,
+            0.32,
+            0,
+        )
+        overlay[highlighted] = blended[highlighted]
+
+        contours_mask = highlighted.astype(np.uint8) * 255
+        contours, _ = cv2.findContours(
+            contours_mask,
+            cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE,
+        )
+        cv2.drawContours(overlay, contours, -1, (255, 255, 255), 2)
+
+    success, encoded = cv2.imencode(
+        ".png",
+        cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR),
+    )
+
+    if not success:
+        return {"image": None, "has_detections": bool(highlighted.any())}
+
+    image_base64 = base64.b64encode(encoded.tobytes()).decode("ascii")
+
+    return {
+        "image": f"data:image/png;base64,{image_base64}",
+        "has_detections": bool(highlighted.any()),
+        "legend": [
+            item
+            for item in CONDITION_LEGEND
+            if np.any(condition_mask == item["label"])
+        ],
     }
 
 def _debug_save_segformer_outputs(img_array, condition_mask, condition_map):
@@ -61,15 +132,9 @@ def _debug_save_segformer_outputs(img_array, condition_mask, condition_map):
     # Create simple overlay
     overlay = img_array.copy()
 
-    colors = {
-        1: [255, 255, 255],  # vitiligo
-        2: [255, 180, 0],    # melasma
-        3: [255, 0, 0],      # wine_stain
-    }
-
     color_mask = np.zeros_like(img_array, dtype=np.uint8)
 
-    for label_value, color in colors.items():
+    for label_value, color in CONDITION_COLORS.items():
         color_mask[condition_mask == label_value] = color
 
     overlay = cv2.addWeighted(img_array.astype(np.uint8), 0.7, color_mask, 0.3, 0)
@@ -192,6 +257,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     # Keep structured SegFormer output in final JSON.
     # Do not add condition_mask because NumPy arrays are not JSON serializable.
     report["segformer_condition_map"] = condition_map
+    report["condition_overlay"] = _build_condition_overlay(img_array, condition_mask)
     report["segformer_debug"] = segformer_debug
 
     return report
