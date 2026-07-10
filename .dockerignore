@@ -1,3 +1,4 @@
+
 # Python virtual environments
 venv/
 env/
@@ -14,8 +15,14 @@ __pycache__/
 
 # Secrets
 .env
-
+.env.example
 # Editor/system files
+
+*.zip
+*.rar
+*.db
+*.task
+
 .vscode/
 .idea/
 .DS_Store
@@ -35,14 +42,18 @@ Thumbs.db
 # Local debug/output folders
 .dev_outputs/
 dev/debug_outputs/
-dev/product_database_builder/data/raw/
+
 dev/product_database_builder/generated/
+dev/product_database_builder/data/
+data-collection/
+training/datasets/
+
 
 # Not needed in production image
 documentation/
-data-collection/
 
 # Keep only inference-related model code from training
 training/*
 !training/models/
 !training/models/**
+
