@@ -1,0 +1,48 @@
+# Python virtual environments
+venv/
+env/
+.venv/
+
+# Python cache and local artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.dll
+*.lib
+
+# Secrets
+.env
+
+# Editor/system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large runtime/model artifacts
+*.task
+*.pth
+*.pt
+*.safetensors
+*.bin
+*.ckpt
+*.zip
+*.db
+*.rar
+
+# Local debug/output folders
+.dev_outputs/
+dev/debug_outputs/
+dev/product_database_builder/data/raw/
+dev/product_database_builder/generated/
+
+# Not needed in production image
+documentation/
+data-collection/
+
+# Keep only inference-related model code from training
+training/*
+!training/models/
+!training/models/**
