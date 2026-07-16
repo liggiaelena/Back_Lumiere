@@ -7,14 +7,16 @@ import asyncio
 
 import cv2
 import numpy as np
-import torchvision.transforms as transforms
-from PIL import Image
-
 from app.image_utils import preprocess
-from app.mediapipe_utils import get_landmarks, extract_region_crops
+from app.face_parsing_bisenet import (
+    build_face_region_masks,
+    extract_region_crops,
+    parse_face,
+)
 from app.vision import analyze_region
 from app.color_utils import build_final_report
-from app.skin_tone_analyzer import analyze_skin_tone
+from app.color_analyzer import analyze_region_colors, analyze_skin_tone
+from app.face_detection import detect_and_zoom_face
 
 
 try:
@@ -41,6 +43,34 @@ CONDITION_LEGEND = [
     {"label": 5, "key": "crow_s_feet", "name": "Crow's feet", "color": "#b964ff"},
     {"label": 6, "key": "nasolabial_fold", "name": "Nasolabial fold", "color": "#00dc78"},
 ]
+
+ZONE_TO_REGION = {
+    "forehead": "testa",
+    "left_cheek": "bochecha_e",
+    "right_cheek": "bochecha_d",
+    "center_face": "nariz",
+    "chin": "queixo",
+}
+
+
+def _condition_imperfections(condition_map: dict) -> list:
+    """Make SegFormer detections visible even if Claude is unavailable."""
+    output = []
+    for condition, details in condition_map.items():
+        if not details.get("detected"):
+            continue
+        area = float(details.get("area_percent", 0))
+        intensity = "intenso" if area >= 15 else "moderado" if area >= 5 else "leve"
+        zones = details.get("zones") or ["center_face"]
+        for zone in zones:
+            output.append({
+                "tipo": condition,
+                "intensidade": intensity,
+                "regiao": ZONE_TO_REGION.get(zone, "nariz"),
+                "source": "segformer",
+                "area_percent": area,
+            })
+    return output
 
 
 def _empty_condition_outputs(img_array: np.ndarray) -> dict:
@@ -158,49 +188,14 @@ def _debug_save_segformer_outputs(img_array, condition_mask, condition_map):
 
 async def _run_segformer_first(loop, img_array: np.ndarray) -> dict:
     if get_condition_outputs is None:
-        return _empty_condition_outputs(img_array)
+        raise RuntimeError("SegFormer is unavailable; disease-safe color analysis cannot continue.")
 
     try:
         return await loop.run_in_executor(None, get_condition_outputs, img_array)
     except Exception as exc:
-        print(f"[Pipeline] SegFormer failed. Using empty condition outputs. Error: {exc}")
-        return _empty_condition_outputs(img_array)
-
-
-def _run_bisenet_and_skin_tone(img_array: np.ndarray, condition_mask: np.ndarray) -> dict:
-    import torch
-    from app import skin_tone_analyzer as st
-
-    net = st._get_model()
-
-    pil = Image.fromarray(img_array.astype(np.uint8)).convert("RGB")
-
-    transform = transforms.Compose([
-        transforms.Resize((512, 512)),
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-        ),
-    ])
-
-    tensor = transform(pil).unsqueeze(0).to(st.DEVICE)
-
-    with torch.no_grad():
-        output = net(tensor)[0]
-        parsing = output.squeeze(0).argmax(0).cpu().numpy().astype(np.uint8)
-
-    parsing_resized = cv2.resize(
-        parsing,
-        (img_array.shape[1], img_array.shape[0]),
-        interpolation=cv2.INTER_NEAREST,
-    )
-
-    return analyze_skin_tone(
-        img_array,
-        parsing_resized,
-        condition_mask,
-    )
+        raise RuntimeError(
+            "SegFormer failed; disease-safe color analysis cannot continue."
+        ) from exc
 
 
 async def run_pipeline(img_rgb, lang: str = "en") -> dict:
@@ -209,7 +204,22 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
 
     loop = asyncio.get_running_loop()
 
-    # 1. SegFormer runs first.
+    # First find the largest face and crop a wider face-focused view. All
+    # subsequent models analyze this zoomed image instead of the full photo.
+    img_array, face_detection = await loop.run_in_executor(
+        None, detect_and_zoom_face, img_array
+    )
+    success, face_encoded = cv2.imencode(
+        ".jpg", cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+    )
+    if not success:
+        raise RuntimeError("Could not encode the detected face image.")
+    face_image = (
+        "data:image/jpeg;base64,"
+        + base64.b64encode(face_encoded.tobytes()).decode("ascii")
+    )
+
+    # 2. SegFormer detects disease/condition pixels on the zoomed face.
     segformer_outputs = await _run_segformer_first(loop, img_array)
     condition_mask = segformer_outputs["condition_mask"]
     condition_map = segformer_outputs["condition_map"]
@@ -219,9 +229,23 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     condition_map,
 )
 
-    # 2. MediaPipe landmarks and crops.
-    coords = get_landmarks(img_array)
-    crops = extract_region_crops(img_array, coords)
+    # 3. BiSeNet parses the face; all five masks share SegFormer's coordinates.
+    parsing_map = await loop.run_in_executor(
+        None,
+        parse_face,
+        img_array,
+    )
+    region_masks = build_face_region_masks(img_array, parsing_map)
+    crops = extract_region_crops(img_array, region_masks)
+
+    # 4. Analyze only parsed skin pixels outside every SegFormer condition.
+    skin_tone = analyze_skin_tone(img_array, parsing_map, condition_mask)
+    region_colors = analyze_region_colors(
+        img_array,
+        parsing_map,
+        condition_mask,
+        region_masks,
+    )
 
     # 3. Claude receives condition_map as context.
     region_tasks = [
@@ -234,18 +258,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         for region, data in crops.items()
     ]
 
-    # 4. BiSeNet / skin tone receives condition_mask.
-    skin_tone_task = loop.run_in_executor(
-        None,
-        _run_bisenet_and_skin_tone,
-        img_array,
-        condition_mask,
-    )
-
-    results_list, skin_tone = await asyncio.gather(
-        asyncio.gather(*region_tasks),
-        skin_tone_task,
-    )
+    results_list = await asyncio.gather(*region_tasks)
 
     region_results = {
         region: result
@@ -253,11 +266,24 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     }
 
     report = build_final_report(region_results, skin_tone)
+    segformer_imperfections = _condition_imperfections(condition_map)
+    existing_imperfections = report.get("imperfeicoes", [])
+    report["imperfeicoes"] = existing_imperfections + segformer_imperfections
 
     # Keep structured SegFormer output in final JSON.
     # Do not add condition_mask because NumPy arrays are not JSON serializable.
     report["segformer_condition_map"] = condition_map
     report["condition_overlay"] = _build_condition_overlay(img_array, condition_mask)
     report["segformer_debug"] = segformer_debug
+    report["face_detection"] = face_detection
+    report["face_image"] = face_image
+    report["face_regions"] = {
+        region: {
+            "bbox": data["bbox"],
+            "bbox_percent": data["bbox_percent"],
+            "healthy_skin_color": region_colors[region],
+        }
+        for region, data in crops.items()
+    }
 
     return report

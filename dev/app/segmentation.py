@@ -6,8 +6,9 @@ from typing import Dict, List, Optional
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
-from transformers import SegformerForSemanticSegmentation, SegformerImageProcessor
+from transformers import SegformerConfig, SegformerForSemanticSegmentation, SegformerImageProcessor
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -42,8 +43,12 @@ CONDITIONS = [
 # If prediction area is smaller than this percentage of the full image,
 # it is treated as noise.
 MIN_AREA_PERCENT = 0.10
+# Predictions covering nearly the entire face are treated as a failed class
+# collapse rather than a localized condition.
+MAX_AREA_PERCENT = 60.0
 
 _MODEL: Optional[dict] = None
+_INDEPENDENT_MODELS: Optional[List[dict]] = None
 
 
 def _find_project_dir() -> Path:
@@ -61,15 +66,72 @@ def _find_project_dir() -> Path:
 
 PROJECT_DIR = _find_project_dir()
 SEGFORMER_ROOT = PROJECT_DIR / "training" / "checkpoints" / "SegFormer"
+INDEPENDENT_MODELS_ROOT = SEGFORMER_ROOT / "models"
+
+
+def _get_independent_models() -> List[dict]:
+    """Load only models that passed cross-disease deployment validation."""
+    global _INDEPENDENT_MODELS
+    if _INDEPENDENT_MODELS is not None:
+        return _INDEPENDENT_MODELS
+
+    bundles = []
+    for directory in sorted(INDEPENDENT_MODELS_ROOT.glob("*")):
+        deployment_path = directory / "deployment.json"
+        if not _path_has_hf_model(directory) or not deployment_path.exists():
+            continue
+        deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
+        metrics = deployment.get("metrics", {})
+        meets_quality_gate = (
+            float(metrics.get("iou", 0)) >= 0.40
+            and float(metrics.get("precision", 0)) >= 0.60
+            and float(metrics.get("recall", 0)) >= 0.50
+        )
+        if not meets_quality_gate and not bool(deployment.get("enabled", False)):
+            print(f"[SegFormer] Skipping unqualified model: {directory}")
+            continue
+        model = SegformerForSemanticSegmentation.from_pretrained(directory).to(DEVICE).eval()
+        image_size = int(deployment.get("image_size", getattr(model.config, "image_size", 224)))
+        processor = SegformerImageProcessor(
+            do_resize=True,
+            size={"height": image_size, "width": image_size},
+            do_normalize=True,
+            image_mean=[0.485, 0.456, 0.406],
+            image_std=[0.229, 0.224, 0.225],
+            do_reduce_labels=False,
+        )
+        target = _normalize_label_name(deployment["target"])
+        bundles.append({
+            "model": model,
+            "processor": processor,
+            "target": target,
+            "threshold": float(deployment["threshold"]),
+            "metrics": metrics,
+            "path": str(directory),
+        })
+        print(f"[SegFormer] Active independent model: {target} ({directory})")
+    _INDEPENDENT_MODELS = bundles
+    return bundles
+
+
+def _predict_independent(img_array: np.ndarray, bundle: dict) -> np.ndarray:
+    h, w = img_array.shape[:2]
+    image = Image.fromarray(img_array.astype(np.uint8)).convert("RGB")
+    inputs = bundle["processor"](images=image, return_tensors="pt")
+    inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
+    with torch.no_grad():
+        logits = bundle["model"](**inputs).logits
+        logits = F.interpolate(logits, size=(h, w), mode="bilinear", align_corners=False)
+        return logits.softmax(1)[0, 1].cpu().numpy()
 
 # The joint/rebalanced multitask checkpoint (see training/TRAINING_HISTORY.md).
 # A single 4-class model avoids running three independently-trained,
 # per-disease detectors that can disagree on the same region.
 DEFAULT_UNIFIED_MODEL_CANDIDATES = [
-    "training/checkpoints/SegFormer/segformer_melasma_model_2/best",
-    "training/checkpoints/SegFormer/segformer_melasma_model_2/last",
-    "training/checkpoints/SegFormer/unified/best",
-    "training/checkpoints/SegFormer/unified/last",
+    "training/checkpoints/SegFormer/deprecated/unified/best",
+    "training/checkpoints/SegFormer/deprecated/unified/last",
+    "training/checkpoints/SegFormer/deprecated/segformer_b2_4class_port_wine_stain_finetune/best",
+    "training/checkpoints/SegFormer/deprecated/segformer_b2_4class_port_wine_stain_finetune/last",
 ]
 
 
@@ -214,10 +276,72 @@ def _load_image_size(model_dir: Path, model) -> int:
     return int(getattr(model.config, "image_size", 224))
 
 
+def _resolve_local_model_path() -> Optional[Path]:
+    env_path = os.getenv("SEGFORMER_LOCAL_MODEL_PATH")
+    if env_path:
+        candidate = _resolve_path(env_path)
+    else:
+        candidate = SEGFORMER_ROOT / "best_model.pt"
+
+    if env_path and not candidate.exists():
+        raise FileNotFoundError(
+            f"SEGFORMER_LOCAL_MODEL_PATH does not exist: {candidate}"
+        )
+    return candidate if candidate.exists() else None
+
+
+def _load_local_model(model_path: Path) -> tuple:
+    config_path = model_path.parent / "config.json"
+    if config_path.exists():
+        config = SegformerConfig.from_json_file(str(config_path))
+    else:
+        raise FileNotFoundError(
+            f"Local SegFormer config is missing: {config_path}"
+        )
+
+    model = SegformerForSemanticSegmentation(config)
+    model.to(DEVICE)
+    model.eval()
+
+    state = torch.load(str(model_path), map_location=DEVICE)
+    if isinstance(state, dict) and "model_state_dict" in state:
+        state = state["model_state_dict"]
+
+    model.load_state_dict(state)
+
+    processor = SegformerImageProcessor(
+        do_resize=True,
+        size={"height": 512, "width": 512},
+        do_normalize=True,
+        image_mean=[0.485, 0.456, 0.406],
+        image_std=[0.229, 0.224, 0.225],
+        do_reduce_labels=False,
+    )
+
+    id2label = {
+        int(key): _normalize_label_name(value)
+        for key, value in config.id2label.items()
+    }
+    return model, processor, id2label
+
+
 def _get_model() -> dict:
     global _MODEL
 
     if _MODEL is not None:
+        return _MODEL
+
+    local_model_path = _resolve_local_model_path()
+    if local_model_path is not None:
+        print(f"[SegFormer] Loading local trained model: {local_model_path}")
+        model, processor, id2label = _load_local_model(local_model_path)
+        print(f"[SegFormer] Active model path set to: {local_model_path}")
+        _MODEL = {
+            "model_dir": str(local_model_path),
+            "model": model,
+            "processor": processor,
+            "id2label": id2label,
+        }
         return _MODEL
 
     model_dir = _resolve_model_path()
@@ -288,15 +412,19 @@ def _predict_unified(img_array: np.ndarray) -> np.ndarray:
 
     with torch.no_grad():
         outputs = model(**inputs)
+        logits = outputs.logits
 
-        logits = torch.nn.functional.interpolate(
-            outputs.logits,
-            size=(h, w),
-            mode="bilinear",
-            align_corners=False,
-        )
-
-        pred = logits.argmax(dim=1)[0].cpu().numpy().astype(np.uint8)
+        if logits.shape[1] == 1:
+            probs = torch.sigmoid(logits)[0, 0].cpu().numpy()
+            pred = (probs > 0.5).astype(np.uint8)
+        else:
+            logits = F.interpolate(
+                logits,
+                size=(h, w),
+                mode="bilinear",
+                align_corners=False,
+            )
+            pred = logits.argmax(dim=1)[0].cpu().numpy().astype(np.uint8)
 
     return pred
 
@@ -331,11 +459,6 @@ def _estimate_zones(binary_mask: np.ndarray) -> List[str]:
 def get_condition_outputs(img_array: np.ndarray) -> dict:
     img_array = np.asarray(img_array)
     h, w = img_array.shape[:2]
-
-    bundle = _get_model()
-    id2label = bundle["id2label"]
-    pred = _predict_unified(img_array)
-
     unified_mask = np.zeros((h, w), dtype=np.uint8)
 
     condition_map = {
@@ -346,6 +469,43 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
         "crow_s_feet": {"detected": False, "area_percent": 0, "zones": []},
         "nasolabial_fold": {"detected": False, "area_percent": 0, "zones": []},
     }
+
+    independent_models = _get_independent_models()
+    if independent_models:
+        # Resolve overlaps by the strongest normalized disease probability.
+        best_probability = np.zeros((h, w), dtype=np.float32)
+        candidate_masks = {}
+        candidate_probabilities = {}
+        for bundle in independent_models:
+            probability = _predict_independent(img_array, bundle)
+            binary = _clean_binary_mask(
+                (probability >= bundle["threshold"]).astype(np.uint8)
+            )
+            condition = bundle["target"]
+            candidate_masks[condition] = binary
+            candidate_probabilities[condition] = probability
+
+        for condition, binary in candidate_masks.items():
+            area_percent = round((int(binary.sum()) / float(h * w)) * 100, 2)
+            detected = MIN_AREA_PERCENT <= area_percent <= MAX_AREA_PERCENT
+            if not detected:
+                continue
+            probability = candidate_probabilities[condition]
+            wins = (binary == 1) & (probability > best_probability)
+            unified_mask[wins] = UNIFIED_LABELS[condition]
+            best_probability[wins] = probability[wins]
+            condition_map[condition] = {
+                "detected": True,
+                "area_percent": area_percent,
+                "zones": _estimate_zones(binary),
+            }
+        return {"condition_mask": unified_mask, "condition_map": condition_map}
+
+    # Legacy fallback is retained only for installations without promoted
+    # independent models.
+    bundle = _get_model()
+    id2label = bundle["id2label"]
+    pred = _predict_unified(img_array)
 
     for condition in CONDITIONS:
         target_ids = [
@@ -358,7 +518,7 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
 
         binary = _clean_binary_mask(np.isin(pred, target_ids).astype(np.uint8))
         area_percent = round((int(binary.sum()) / float(h * w)) * 100, 2)
-        detected = area_percent >= MIN_AREA_PERCENT
+        detected = MIN_AREA_PERCENT <= area_percent <= MAX_AREA_PERCENT
 
         if detected:
             unified_mask[binary == 1] = UNIFIED_LABELS[condition]

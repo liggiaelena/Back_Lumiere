@@ -1,0 +1,344 @@
+{
+  "checkpoint": "training\\checkpoints\\SegFormer\\deprecated\\segformer_b2_4class_port_wine_stain_finetune\\best",
+  "target_label": "port_wine_stain",
+  "class_id": 3,
+  "overall": {
+    "0.0": {
+      "tp": 133150,
+      "fp": 755131,
+      "fn": 48400,
+      "pixels": 6773760,
+      "predicted": 888281,
+      "iou": 0.14215084964891997,
+      "precision": 0.1498962603050161,
+      "recall": 0.7334067749931148,
+      "predicted_area_percent": 13.113558791572185
+    },
+    "0.5": {
+      "tp": 130771,
+      "fp": 716697,
+      "fn": 50779,
+      "pixels": 6773760,
+      "predicted": 847468,
+      "iou": 0.1455846777111418,
+      "precision": 0.15430789127141084,
+      "recall": 0.7203029468465987,
+      "predicted_area_percent": 12.51104261148904
+    },
+    "0.7": {
+      "tp": 113692,
+      "fp": 532935,
+      "fn": 67858,
+      "pixels": 6773760,
+      "predicted": 646627,
+      "iou": 0.15912440429120275,
+      "precision": 0.17582315616267183,
+      "recall": 0.6262296887909666,
+      "predicted_area_percent": 9.546057138133031
+    },
+    "0.8": {
+      "tp": 100639,
+      "fp": 433088,
+      "fn": 80911,
+      "pixels": 6773760,
+      "predicted": 533727,
+      "iou": 0.16373702895037404,
+      "precision": 0.18855894492877445,
+      "recall": 0.5543321399063619,
+      "predicted_area_percent": 7.879331420068027
+    },
+    "0.9": {
+      "tp": 78074,
+      "fp": 301401,
+      "fn": 103476,
+      "pixels": 6773760,
+      "predicted": 379475,
+      "iou": 0.16166029265908963,
+      "precision": 0.20574214375123526,
+      "recall": 0.4300413109336271,
+      "predicted_area_percent": 5.602132345993953
+    },
+    "0.95": {
+      "tp": 51719,
+      "fp": 182890,
+      "fn": 129831,
+      "pixels": 6773760,
+      "predicted": 234609,
+      "iou": 0.14191362089781584,
+      "precision": 0.22044763841114365,
+      "recall": 0.2848746901679978,
+      "predicted_area_percent": 3.463497378117914
+    },
+    "0.99": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 181550,
+      "pixels": 6773760,
+      "predicted": 0,
+      "iou": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "predicted_area_percent": 0.0
+    }
+  },
+  "datasets": {
+    "melasma_like_hyperpigmentation": {
+      "0.0": {
+        "tp": 0,
+        "fp": 683537,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 683537,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 13.355674300970389
+      },
+      "0.5": {
+        "tp": 0,
+        "fp": 651195,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 651195,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 12.723741840486195
+      },
+      "0.7": {
+        "tp": 0,
+        "fp": 493852,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 493852,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 9.649406637655062
+      },
+      "0.8": {
+        "tp": 0,
+        "fp": 406874,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 406874,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 7.949937787615045
+      },
+      "0.9": {
+        "tp": 0,
+        "fp": 289403,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 289403,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 5.654664209433773
+      },
+      "0.95": {
+        "tp": 0,
+        "fp": 177144,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 177144,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 3.4612282412965185
+      },
+      "0.99": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "pixels": 5117952,
+        "predicted": 0,
+        "images": 102,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.0
+      }
+    },
+    "vitiligo": {
+      "0.0": {
+        "tp": 0,
+        "fp": 27266,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 27266,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 3.622714710884354
+      },
+      "0.5": {
+        "tp": 0,
+        "fp": 23614,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 23614,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 3.137489370748299
+      },
+      "0.7": {
+        "tp": 0,
+        "fp": 10169,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 10169,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 1.3511107568027212
+      },
+      "0.8": {
+        "tp": 0,
+        "fp": 4138,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 4138,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.5497980442176871
+      },
+      "0.9": {
+        "tp": 0,
+        "fp": 212,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 212,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.02816751700680272
+      },
+      "0.95": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 0,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.0
+      },
+      "0.99": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "pixels": 752640,
+        "predicted": 0,
+        "images": 15,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.0
+      }
+    },
+    "port_wine_stain": {
+      "0.0": {
+        "tp": 133150,
+        "fp": 44328,
+        "fn": 48400,
+        "pixels": 903168,
+        "predicted": 177478,
+        "images": 18,
+        "iou": 0.5894775055560967,
+        "precision": 0.7502338317988708,
+        "recall": 0.7334067749931148,
+        "predicted_area_percent": 19.65060763888889
+      },
+      "0.5": {
+        "tp": 130771,
+        "fp": 41888,
+        "fn": 50779,
+        "pixels": 903168,
+        "predicted": 172659,
+        "images": 18,
+        "iou": 0.5852675014992973,
+        "precision": 0.7573946333524462,
+        "recall": 0.7203029468465987,
+        "predicted_area_percent": 19.117041347789115
+      },
+      "0.7": {
+        "tp": 113692,
+        "fp": 28914,
+        "fn": 67858,
+        "pixels": 903168,
+        "predicted": 142606,
+        "images": 18,
+        "iou": 0.5401968982818914,
+        "precision": 0.7972455576904197,
+        "recall": 0.6262296887909666,
+        "predicted_area_percent": 15.789531958616779
+      },
+      "0.8": {
+        "tp": 100639,
+        "fp": 22076,
+        "fn": 80911,
+        "pixels": 903168,
+        "predicted": 122715,
+        "images": 18,
+        "iou": 0.49423452800722895,
+        "precision": 0.8201034918306646,
+        "recall": 0.5543321399063619,
+        "predicted_area_percent": 13.587173150510203
+      },
+      "0.9": {
+        "tp": 78074,
+        "fp": 11786,
+        "fn": 103476,
+        "pixels": 903168,
+        "predicted": 89860,
+        "images": 18,
+        "iou": 0.40382546447635204,
+        "precision": 0.8688404184286668,
+        "recall": 0.4300413109336271,
+        "predicted_area_percent": 9.949422477324262
+      },
+      "0.95": {
+        "tp": 51719,
+        "fp": 5746,
+        "fn": 129831,
+        "pixels": 903168,
+        "predicted": 57465,
+        "images": 18,
+        "iou": 0.2761351016572698,
+        "precision": 0.9000087009484034,
+        "recall": 0.2848746901679978,
+        "predicted_area_percent": 6.362603635204081
+      },
+      "0.99": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 181550,
+        "pixels": 903168,
+        "predicted": 0,
+        "images": 18,
+        "iou": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "predicted_area_percent": 0.0
+      }
+    }
+  }
+}

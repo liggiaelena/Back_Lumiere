@@ -24,8 +24,8 @@ from models.model import BiSeNet
 INPUT_FACE = DATA_COLLECTION_DIR / "outputs" / "face_crop.jpg"
 OUTPUT_DIR = DATA_COLLECTION_DIR / "outputs"
 
-BEST_MODEL = TRAINING_DIR / "checkpoints" / "bisenet_best.pth"
-DEFAULT_MODEL = TRAINING_DIR / "checkpoints" / "79999_iter.pth"
+BEST_MODEL = TRAINING_DIR / "checkpoints" / "BiSeNet" / "bisenet_best.pth"
+DEFAULT_MODEL = TRAINING_DIR / "checkpoints" / "BiSeNet" / "79999_iter.pth"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 INPUT_SIZE = (512, 512)

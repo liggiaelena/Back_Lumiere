@@ -21,7 +21,7 @@ def _find_project_dir() -> Path:
 
 PROJECT_DIR = _find_project_dir()
 TRAINING_DIR = PROJECT_DIR / "training"
-CHECKPOINT = TRAINING_DIR / "checkpoints" / "bisenet_best.pth"
+CHECKPOINT = TRAINING_DIR / "checkpoints" / "BiSeNet" / "bisenet_best.pth"
 
 NUM_CLASSES = 14
 SKIN_LABEL = 1
@@ -207,6 +207,61 @@ def analyze_skin_tone(
 
         traceback.print_exc()
         return _empty_result()
+
+
+def analyze_region_skin_colors(
+    img_rgb: np.ndarray,
+    bisenet_map: np.ndarray,
+    condition_mask: np.ndarray,
+    region_masks: dict,
+) -> dict:
+    """Extract median healthy-skin color for each parsed facial region.
+
+    A usable pixel must belong to BiSeNet's skin class, belong to the requested
+    face region, and not belong to any SegFormer condition class.
+    """
+    image = np.asarray(img_rgb, dtype=np.uint8)
+    h, w = image.shape[:2]
+    parsing = np.asarray(bisenet_map, dtype=np.uint8)
+    conditions = np.asarray(condition_mask, dtype=np.uint8)
+    if parsing.shape != (h, w):
+        parsing = cv2.resize(parsing, (w, h), interpolation=cv2.INTER_NEAREST)
+    if conditions.shape != (h, w):
+        conditions = cv2.resize(
+            conditions, (w, h), interpolation=cv2.INTER_NEAREST
+        )
+
+    # Only the checkpoint's facial-skin class is eligible. Semantic parts such
+    # as eyes, lips, hair and uncertain class-10 predictions stay excluded.
+    skin_mask = parsing == SKIN_LABEL
+    healthy_skin_mask = skin_mask & (conditions == 0)
+    output = {}
+    for name, raw_region_mask in region_masks.items():
+        region_mask = np.asarray(raw_region_mask, dtype=bool)
+        if region_mask.shape != (h, w):
+            region_mask = cv2.resize(
+                region_mask.astype(np.uint8),
+                (w, h),
+                interpolation=cv2.INTER_NEAREST,
+            ).astype(bool)
+        region_skin = skin_mask & region_mask
+        healthy_region = healthy_skin_mask & region_mask
+        pixels = image[healthy_region]
+        rgb = (
+            np.median(pixels, axis=0).astype(int).tolist()
+            if pixels.size
+            else None
+        )
+        total = int(region_skin.sum())
+        healthy = int(healthy_region.sum())
+        output[name] = {
+            "rgb": rgb,
+            "hex": _to_hex(rgb) if rgb is not None else None,
+            "healthy_pixel_count": healthy,
+            "excluded_condition_pixel_count": total - healthy,
+            "healthy_percent": round(healthy / total * 100, 4) if total else 0.0,
+        }
+    return output
 
 
 def _to_hex(rgb: list) -> str:

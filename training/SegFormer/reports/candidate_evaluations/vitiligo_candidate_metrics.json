@@ -1,0 +1,54 @@
+{
+  "checkpoint": "training\\checkpoints\\SegFormer\\deprecated\\segformer_b2_4class_vitiligo_finetune\\vitiligo_finetune\\best",
+  "target_label": "vitiligo",
+  "class_id": 1,
+  "overall": {
+    "tp": 110710,
+    "fp": 2440303,
+    "fn": 268311,
+    "pixels": 6773760,
+    "predicted": 2551013,
+    "iou": 0.03926827849512862,
+    "precision": 0.04339844602908727,
+    "recall": 0.29209463327889484,
+    "predicted_area_percent": 37.66022120653817
+  },
+  "datasets": {
+    "melasma_like_hyperpigmentation": {
+      "tp": 0,
+      "fp": 2020242,
+      "fn": 0,
+      "pixels": 5117952,
+      "predicted": 2020242,
+      "images": 102,
+      "iou": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "predicted_area_percent": 39.473641018907564
+    },
+    "vitiligo": {
+      "tp": 110710,
+      "fp": 105340,
+      "fn": 268311,
+      "pixels": 752640,
+      "predicted": 216050,
+      "images": 15,
+      "iou": 0.22856918703198648,
+      "precision": 0.5124276787780606,
+      "recall": 0.29209463327889484,
+      "predicted_area_percent": 28.70562287414966
+    },
+    "port_wine_stain": {
+      "tp": 0,
+      "fp": 314721,
+      "fn": 0,
+      "pixels": 903168,
+      "predicted": 314721,
+      "images": 18,
+      "iou": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "predicted_area_percent": 34.84634088010204
+    }
+  }
+}

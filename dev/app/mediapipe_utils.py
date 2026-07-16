@@ -91,3 +91,129 @@ def extract_region_crops(img_array: np.ndarray, coords: dict) -> dict:
         crops[region] = {"array": clean, "base64": b64_crop}
 
     return crops
+
+
+def build_parsing_region_masks(
+    img_array: np.ndarray,
+    parsing_map: np.ndarray,
+) -> dict:
+    """Return five named boolean masks derived from a 14-class BiSeNet map.
+
+    The public region keys intentionally stay compatible with the previous
+    MediaPipe implementation.  Class 1 is facial skin and class 10 is nose.
+    The remaining skin is split relative to the parsed face bounding box. All
+    masks use the same coordinate system and dimensions as ``img_array``.
+    """
+    image = np.asarray(img_array)
+    h, w = image.shape[:2]
+    parsing = np.asarray(parsing_map, dtype=np.uint8)
+    if parsing.shape != (h, w):
+        parsing = cv2.resize(parsing, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    face_mask = parsing > 0
+    skin_mask = parsing == 1
+    if not face_mask.any() or not skin_mask.any():
+        raise ValueError("BiSeNet did not detect a usable face/skin region.")
+
+    ys, xs = np.where(face_mask)
+    x_min, x_max = int(xs.min()), int(xs.max())
+    y_min, y_max = int(ys.min()), int(ys.max())
+    face_w = max(1, x_max - x_min + 1)
+    face_h = max(1, y_max - y_min + 1)
+    x_mid = x_min + face_w // 2
+
+    yy = np.arange(h)[:, None]
+    xx = np.arange(w)[None, :]
+    forehead = skin_mask & (yy < y_min + int(0.32 * face_h))
+    chin = skin_mask & (yy > y_min + int(0.72 * face_h))
+    # Keep the nose inside the parsed facial-skin class. Although class 10 is
+    # commonly named "nose" in public face-parsing datasets, this project's
+    # 14-class checkpoint does not predict it reliably enough to use directly.
+    nose = (
+        skin_mask
+        & (xx >= x_min + int(0.36 * face_w))
+        & (xx <= x_min + int(0.64 * face_w))
+        & (yy >= y_min + int(0.30 * face_h))
+        & (yy <= y_min + int(0.72 * face_h))
+    )
+    cheek_band = (
+        skin_mask
+        & (yy >= y_min + int(0.28 * face_h))
+        & (yy <= y_min + int(0.76 * face_h))
+        & ~nose
+    )
+
+    region_masks = {
+        "testa": forehead,
+        "bochecha_e": cheek_band & (xx < x_mid),
+        "bochecha_d": cheek_band & (xx >= x_mid),
+        "nariz": nose,
+        "queixo": chin,
+    }
+
+    # A class may be absent in a difficult image (for example the nose class
+    # behind glasses or the bottom skin class in a tight crop). Keep all five
+    # API parts available by falling back inside the model-derived face box.
+    fallback_boxes = {
+        "testa": (0.20, 0.05, 0.80, 0.30),
+        "bochecha_e": (0.04, 0.38, 0.46, 0.72),
+        "bochecha_d": (0.54, 0.38, 0.96, 0.72),
+        "nariz": (0.36, 0.32, 0.64, 0.70),
+        "queixo": (0.25, 0.72, 0.75, 0.96),
+    }
+    for region, region_mask in region_masks.items():
+        if region_mask.any():
+            continue
+        bx1, by1, bx2, by2 = fallback_boxes[region]
+        fallback = (
+            (xx >= x_min + int(bx1 * face_w))
+            & (xx <= x_min + int(bx2 * face_w))
+            & (yy >= y_min + int(by1 * face_h))
+            & (yy <= y_min + int(by2 * face_h))
+        )
+        model_fallback = fallback & face_mask
+        region_masks[region] = model_fallback if model_fallback.any() else fallback
+
+    return region_masks
+
+
+def extract_parsing_region_crops(
+    img_array: np.ndarray,
+    parsing_map: np.ndarray,
+    region_masks: dict | None = None,
+) -> dict:
+    """Crop the five face regions and include their image-space positions."""
+    image = np.asarray(img_array)
+    h, w = image.shape[:2]
+    if region_masks is None:
+        region_masks = build_parsing_region_masks(image, parsing_map)
+
+    crops = {}
+    padding = 15
+    for region, region_mask in region_masks.items():
+        region_ys, region_xs = np.where(region_mask)
+        rx1 = max(0, int(region_xs.min()) - padding)
+        ry1 = max(0, int(region_ys.min()) - padding)
+        rx2 = min(w, int(region_xs.max()) + padding + 1)
+        ry2 = min(h, int(region_ys.max()) + padding + 1)
+
+        masked = np.zeros_like(image)
+        masked[region_mask] = image[region_mask]
+        clean = masked[ry1:ry2, rx1:rx2]
+
+        pil_crop = Image.fromarray(clean)
+        buf = io.BytesIO()
+        pil_crop.save(buf, format="JPEG", quality=85)
+        crops[region] = {
+            "array": clean,
+            "base64": base64.b64encode(buf.getvalue()).decode(),
+            "bbox": {"x1": rx1, "y1": ry1, "x2": rx2, "y2": ry2},
+            "bbox_percent": {
+                "x": round(rx1 / w * 100, 4),
+                "y": round(ry1 / h * 100, 4),
+                "width": round((rx2 - rx1) / w * 100, 4),
+                "height": round((ry2 - ry1) / h * 100, 4),
+            },
+        }
+
+    return crops

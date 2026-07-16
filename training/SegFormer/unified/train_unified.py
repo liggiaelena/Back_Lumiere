@@ -271,9 +271,11 @@ def parse_sampling_ratios(values: list[str] | None) -> dict[str, float]:
         if name not in valid_names:
             raise ValueError(f"Unknown disease '{name}'. Expected one of: {', '.join(sorted(valid_names))}.")
         ratio = float(raw_ratio)
-        if ratio <= 0:
-            raise ValueError(f"Sampling ratio for {name} must be positive.")
+        if ratio < 0:
+            raise ValueError(f"Sampling ratio for {name} must be non-negative.")
         ratios[name] = ratio
+    if ratios and not any(ratio > 0 for ratio in ratios.values()):
+        raise ValueError("At least one sampling ratio must be greater than zero.")
     return ratios
 
 
@@ -325,15 +327,51 @@ def evaluate_all(
     weight: torch.Tensor,
     dice_weight: float,
 ) -> dict[str, float]:
+    # Accumulate each class over every validation dataset. This makes a
+    # vitiligo prediction on a melasma image count as a false positive and
+    # avoids inflating IoU by assigning 1.0 to individual empty masks.
+    totals = {
+        name: {"tp": 0, "fp": 0, "fn": 0}
+        for name in DISEASE_CLASS_IDS
+    }
+    losses = []
+    model.eval()
+    with torch.no_grad():
+        for loader in loaders.values():
+            for batch in loader:
+                pixel_values = batch["pixel_values"].to(device)
+                labels = batch["labels"].to(device)
+                outputs = model(pixel_values=pixel_values)
+                logits = F.interpolate(
+                    outputs.logits,
+                    size=labels.shape[-2:],
+                    mode="bilinear",
+                    align_corners=False,
+                )
+                losses.append(
+                    segmentation_loss(
+                        logits, labels, weight, dice_weight=dice_weight
+                    ).item()
+                )
+                preds = logits.argmax(dim=1)
+                for name, class_id in DISEASE_CLASS_IDS.items():
+                    pred_pos = preds == class_id
+                    label_pos = labels == class_id
+                    totals[name]["tp"] += int((pred_pos & label_pos).sum().item())
+                    totals[name]["fp"] += int((pred_pos & ~label_pos).sum().item())
+                    totals[name]["fn"] += int((~pred_pos & label_pos).sum().item())
+
     metrics: dict[str, float] = {}
     ious = []
-    losses = []
-    for name, loader in loaders.items():
-        result = evaluate_one(model, loader, device, weight, DISEASE_CLASS_IDS[name], dice_weight)
-        metrics[f"val_{name}_loss"] = result["loss"]
-        metrics[f"val_{name}_iou"] = result["iou"]
-        ious.append(result["iou"])
-        losses.append(result["loss"])
+    for name, counts in totals.items():
+        tp, fp, fn = counts["tp"], counts["fp"], counts["fn"]
+        iou = tp / (tp + fp + fn) if (tp + fp + fn) else 0.0
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        metrics[f"val_{name}_iou"] = float(iou)
+        metrics[f"val_{name}_precision"] = float(precision)
+        metrics[f"val_{name}_recall"] = float(recall)
+        ious.append(iou)
     metrics["val_mean_iou"] = float(np.mean(ious)) if ious else 0.0
     metrics["val_min_iou"] = float(np.min(ious)) if ious else 0.0
     metrics["val_mean_loss"] = float(np.mean(losses)) if losses else 0.0
@@ -452,6 +490,13 @@ def train(args) -> None:
         else:
             print(f"resume_state_not_found={training_state_path}; starting fresh")
 
+    epochs_without_improvement = 0
+    if history:
+        for previous in reversed(history):
+            if float(previous.get("selection_score", -1.0)) >= best_score:
+                break
+            epochs_without_improvement += 1
+
     for epoch in range(start_epoch, args.epochs + 1):
         model.train()
         train_losses = []
@@ -499,15 +544,32 @@ def train(args) -> None:
             score = (1.0 - args.min_iou_weight) * metrics["val_mean_iou"] + args.min_iou_weight * metrics["val_min_iou"]
         row["selection_score"] = score
 
-        if score > best_score:
+        improved = score > best_score + args.early_stopping_min_delta
+        if improved:
             best_score = score
+            epochs_without_improvement = 0
             model.save_pretrained(output_dir / "best")
             save_metadata(output_dir / "best", args, train_datasets)
+        else:
+            epochs_without_improvement += 1
 
         model.save_pretrained(output_dir / "last")
         save_metadata(output_dir / "last", args, train_datasets)
         (output_dir / "training_history.json").write_text(json.dumps(history, indent=2) + "\n")
         save_training_state(training_state_path, epoch, model, optimizer, scheduler, best_score, history, args)
+
+        if (
+            args.early_stopping_patience > 0
+            and epoch >= args.early_stopping_min_epochs
+            and epochs_without_improvement >= args.early_stopping_patience
+        ):
+            print(
+                "early_stopping=validation_score_plateau "
+                f"patience={args.early_stopping_patience} "
+                f"min_delta={args.early_stopping_min_delta} "
+                f"best_selection_score={best_score:.4f}"
+            )
+            break
 
     print(f"best_selection_score={best_score:.4f}")
     print(f"saved_best={output_dir / 'best'}")
@@ -551,6 +613,24 @@ def parse_args():
     parser.add_argument("--no-augment", action="store_true")
     parser.add_argument("--resume", action="store_true", help="Resume from training_state.pt if it exists.")
     parser.add_argument("--resume-state", help="Path to a saved training_state.pt.")
+    parser.add_argument(
+        "--early-stopping-patience",
+        type=int,
+        default=3,
+        help="Stop after this many epochs without a meaningful validation-score improvement; 0 disables.",
+    )
+    parser.add_argument(
+        "--early-stopping-min-delta",
+        type=float,
+        default=0.002,
+        help="Minimum selection-score increase considered a genuine validation improvement.",
+    )
+    parser.add_argument(
+        "--early-stopping-min-epochs",
+        type=int,
+        default=5,
+        help="Never stop for a validation plateau before this epoch is completed.",
+    )
     return parser.parse_args()
 
 
