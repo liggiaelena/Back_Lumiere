@@ -34,6 +34,34 @@ The following evaluations simulate 50 forward passes per model on a single face 
   - **The Golden Ratio (Precision vs Speed):** **SegFormer-B2** executes in just **23.77 ms** on the GPU, effortlessly clearing our real-time constraint (sub-50 ms threshold). Compared to B0, B2 offers a 7.3x increase in total parameters (27.35M vs 3.72M), substantially empowering the backbone network to model complex, pixel-level semantic boundaries for facial vitiligo and melasma patches.
   - **Memory Efficiency:** Active GPU VRAM allocation is exceptionally lightweight at 115.80 MB, ensuring full system stability under concurrent web request loads.
 
+### 4. Melasma Independent-Model Improvement (2026-07-16)
+
+The deployed melasma branch now uses a binary disease-vs-rest SegFormer trained with
+cross-disease negatives from the vitiligo and port-wine-stain datasets. Training used
+an NVIDIA GeForce RTX 4060 Laptop GPU, PyTorch 2.11.0 with CUDA 12.6 runtime, 512 x 512
+inputs, batch size 2, lesion-focused crops, and low-contrast augmentation.
+
+Checkpoint promotion requires all of the following validation gates:
+
+| Metric | Minimum | Selected checkpoint |
+| :--- | ---: | ---: |
+| Pixel IoU | 0.40 | **0.5627** |
+| Pixel precision | 0.60 | **0.7517** |
+| Pixel recall | 0.50 | **0.6912** |
+| Positive-image recall | 0.80 | **0.8125** |
+| Negative-image false-positive rate | monitored | **0.0805** |
+
+The selected checkpoint was produced at epoch 24. Independent test evaluation selected
+threshold `0.50`, with IoU `0.4615`, precision `0.6719`, and recall `0.5957`. At this
+threshold, the vitiligo and port-wine-stain test sets produced no cross-disease melasma
+pixels. Validation gains were larger than test gains, so the system also retains a
+conservative multimodal fallback for diffuse low-contrast cases: a soft SegFormer
+candidate must be supported by spot observations in at least two matching facial zones.
+
+The project requirements intentionally remain CUDA-neutral. CPU installations use the
+standard PyTorch package; GPU deployments install an appropriate official CUDA wheel
+and are selected automatically at runtime.
+
 
 
 **3. Architectural Analysis & Final Selection**

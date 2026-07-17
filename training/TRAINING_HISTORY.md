@@ -157,3 +157,62 @@ training/checkpoints/SegFormer/unified/final_evaluation/melasma/test_metrics.jso
 training/checkpoints/SegFormer/unified/final_evaluation/port_wine_stain/test_metrics.json
 training/checkpoints/SegFormer/unified/final_evaluation/vitiligo/test_metrics.json
 ```
+
+---
+
+## Phase 3 - Independent Melasma Recall Improvement (2026-07-16)
+
+### Problem
+
+Diffuse, low-contrast pigmentation could be reported as a generic `Spot` while the
+melasma segmentation branch returned no condition. The previous independent model used
+threshold `0.75`; test IoU was `0.4634`, precision `0.6830`, and recall `0.5904`.
+
+### Data and training configuration
+
+- Dataset root: `../Model_Segformer`
+- Melasma: 512 images (255 positive masks and 257 empty masks)
+- Split: 358 train / 102 validation / 52 test
+- Negatives: `vitiligo_face_prepared` and `port_wine_stain/processed`
+- Starting checkpoint: promoted independent melasma model
+- Device: NVIDIA GeForce RTX 4060 Laptop GPU
+- PyTorch: `2.11.0+cu126`
+- Image size / batch size: 512 / 2
+- Samples per epoch / positive sampling ratio: 480 / 0.60
+- Lesion crop / low-contrast augmentation probability: 0.40 / 0.40
+- Learning rate: `2e-5`
+- Positive CE weight / Dice weight: 3.0 / 0.7
+
+Training reached the 30-epoch limit after later epochs failed to improve the complete
+deployment score. Epoch 24 was selected.
+
+### Checkpoint selection correction
+
+Evaluation now tracks both pixel-level and image-level behaviour. A checkpoint cannot
+replace a deployable checkpoint unless it meets precision, recall, and positive-image
+recall gates. This prevents high pixel IoU from hiding complete image misses.
+
+### Selected validation result
+
+| Threshold | IoU | Precision | Recall | Positive-image recall | Image false-positive rate |
+|---:|---:|---:|---:|---:|---:|
+| 0.65 | **0.5627** | **0.7517** | **0.6912** | **0.8125** | **0.0805** |
+
+### Independent test and deployment result
+
+| Threshold | IoU | Precision | Recall |
+|---:|---:|---:|---:|
+| **0.50** | **0.4615** | **0.6719** | **0.5957** |
+
+At threshold 0.50, vitiligo and port-wine-stain test sets produced no melasma pixels.
+Validation gains transferred only partly to the test split, so further epochs on the
+same data were considered unlikely to provide a short-term quality gain. Future work
+should prioritize new hard-positive photographs and subject-level split auditing.
+
+### Deployment artifacts
+
+```text
+training/checkpoints/SegFormer/models/melasma/
+training/checkpoints/SegFormer/experiments/melasma_improved_v2/
+training/checkpoints/SegFormer/models_archive/melasma_pre_improved_20260716/
+```

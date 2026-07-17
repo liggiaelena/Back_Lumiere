@@ -47,6 +47,11 @@ MIN_AREA_PERCENT = 0.10
 # collapse rather than a localized condition.
 MAX_AREA_PERCENT = 60.0
 
+# Keep lower-confidence melasma pixels for multimodal confirmation. They are
+# never reported as melasma unless the region analyser independently observes
+# spots in more than one facial zone.
+MELASMA_CANDIDATE_THRESHOLD = 0.55
+
 _MODEL: Optional[dict] = None
 _INDEPENDENT_MODELS: Optional[List[dict]] = None
 
@@ -460,6 +465,7 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
     img_array = np.asarray(img_array)
     h, w = img_array.shape[:2]
     unified_mask = np.zeros((h, w), dtype=np.uint8)
+    condition_candidates = {}
 
     condition_map = {
         "vitiligo": {"detected": False, "area_percent": 0, "zones": []},
@@ -499,7 +505,33 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
                 "area_percent": area_percent,
                 "zones": _estimate_zones(binary),
             }
-        return {"condition_mask": unified_mask, "condition_map": condition_map}
+
+        # A high deployment threshold is useful for precision, but it used to
+        # erase all evidence for diffuse, low-contrast melasma. Preserve that
+        # evidence for the pipeline's independent Spot confirmation step.
+        melasma_probability = candidate_probabilities.get("melasma")
+        if (
+            melasma_probability is not None
+            and not condition_map["melasma"]["detected"]
+        ):
+            candidate_mask = _clean_binary_mask(
+                (melasma_probability >= MELASMA_CANDIDATE_THRESHOLD).astype(np.uint8)
+            )
+            candidate_area = round(
+                (int(candidate_mask.sum()) / float(h * w)) * 100, 2
+            )
+            if MIN_AREA_PERCENT <= candidate_area <= MAX_AREA_PERCENT:
+                condition_candidates["melasma"] = {
+                    "mask": candidate_mask,
+                    "threshold": MELASMA_CANDIDATE_THRESHOLD,
+                    "area_percent": candidate_area,
+                    "zones": _estimate_zones(candidate_mask),
+                }
+        return {
+            "condition_mask": unified_mask,
+            "condition_map": condition_map,
+            "condition_candidates": condition_candidates,
+        }
 
     # Legacy fallback is retained only for installations without promoted
     # independent models.
@@ -532,6 +564,7 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
     return {
         "condition_mask": unified_mask,
         "condition_map": condition_map,
+        "condition_candidates": condition_candidates,
     }
 
 

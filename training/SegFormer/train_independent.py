@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
+from PIL import Image, ImageFilter
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms
 from torchvision.transforms import functional as TF
@@ -57,12 +57,13 @@ def validate_mask_integrity(dataset_dir: Path) -> None:
 
 
 class OneVsRestDataset(Dataset):
-    def __init__(self, datasets: dict[str, Path], split: str, target: str, size: int, augment: bool, lesion_crop_probability: float = 0.0):
+    def __init__(self, datasets: dict[str, Path], split: str, target: str, size: int, augment: bool, lesion_crop_probability: float = 0.0, low_contrast_probability: float = 0.0):
         self.datasets = datasets
         self.target = target
         self.size = size
         self.augment = augment
         self.lesion_crop_probability = lesion_crop_probability
+        self.low_contrast_probability = low_contrast_probability
         self.jitter = transforms.ColorJitter(0.15, 0.15, 0.1, 0.04)
         self.items = []
         self.groups = []
@@ -107,6 +108,14 @@ class OneVsRestDataset(Dataset):
             if random.random() < 0.5:
                 image, label = TF.hflip(image), TF.hflip(label)
             image = self.jitter(image)
+            # Diffuse melasma is often photographed with weak local contrast,
+            # uneven illumination, JPEG softness, or makeup. Simulating those
+            # conditions reduces the all-or-nothing misses seen in production.
+            if random.random() < self.low_contrast_probability:
+                image = TF.adjust_contrast(image, random.uniform(0.55, 0.85))
+                image = TF.adjust_gamma(image, random.uniform(0.8, 1.25))
+                if random.random() < 0.5:
+                    image = image.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.3, 1.2)))
         return TF.normalize(TF.to_tensor(image), MEAN, STD), torch.from_numpy(np.asarray(label, dtype=np.int64).copy()), group
 
     @staticmethod
@@ -146,7 +155,7 @@ def loss_fn(logits, labels, positive_weight, dice_weight, focal_gamma):
 
 @torch.inference_mode()
 def evaluate(model, loader, device, thresholds):
-    counts = {threshold: {"tp": 0, "fp": 0, "fn": 0} for threshold in thresholds}
+    counts = {threshold: {"tp": 0, "fp": 0, "fn": 0, "positive_images": 0, "detected_positive_images": 0, "negative_images": 0, "false_positive_images": 0} for threshold in thresholds}
     model.eval()
     for pixels, labels, _ in loader:
         pixels, labels = pixels.to(device), labels.to(device)
@@ -158,6 +167,12 @@ def evaluate(model, loader, device, thresholds):
             counts[threshold]["tp"] += int((prediction & truth).sum())
             counts[threshold]["fp"] += int((prediction & ~truth).sum())
             counts[threshold]["fn"] += int((~prediction & truth).sum())
+            positive_images = truth.flatten(1).any(1)
+            predicted_images = prediction.flatten(1).any(1)
+            counts[threshold]["positive_images"] += int(positive_images.sum())
+            counts[threshold]["detected_positive_images"] += int((positive_images & predicted_images).sum())
+            counts[threshold]["negative_images"] += int((~positive_images).sum())
+            counts[threshold]["false_positive_images"] += int(((~positive_images) & predicted_images).sum())
     metrics = {}
     for threshold, value in counts.items():
         tp, fp, fn = value["tp"], value["fp"], value["fn"]
@@ -166,6 +181,8 @@ def evaluate(model, loader, device, thresholds):
             "iou": tp / (tp + fp + fn) if tp + fp + fn else 0.0,
             "precision": tp / (tp + fp) if tp + fp else 0.0,
             "recall": tp / (tp + fn) if tp + fn else 0.0,
+            "image_recall": value["detected_positive_images"] / value["positive_images"] if value["positive_images"] else 0.0,
+            "image_false_positive_rate": value["false_positive_images"] / value["negative_images"] if value["negative_images"] else 0.0,
         }
     return metrics
 
@@ -177,7 +194,7 @@ def train(args):
     if args.vitiligo_dataset is not None:
         paths["vitiligo"] = args.vitiligo_dataset
     validate_mask_integrity(paths[args.target])
-    train_set = OneVsRestDataset(paths, "train", args.target, args.image_size, True, args.lesion_crop_probability)
+    train_set = OneVsRestDataset(paths, "train", args.target, args.image_size, True, args.lesion_crop_probability, args.low_contrast_probability)
     val_set = OneVsRestDataset(paths, "val", args.target, args.image_size, False)
     sampler = WeightedRandomSampler(train_set.balanced_weights(args.positive_ratio), args.samples_per_epoch, replacement=True)
     train_loader = DataLoader(train_set, args.batch_size, sampler=sampler, num_workers=args.num_workers)
@@ -214,12 +231,19 @@ def train(args):
             losses.append(loss.item())
         scheduler.step()
         metrics = evaluate(model, val_loader, device, thresholds)
-        eligible = [(float(t), m) for t, m in metrics.items() if m["precision"] >= args.min_precision and m["recall"] >= args.min_recall]
+        eligible = [(float(t), m) for t, m in metrics.items() if m["precision"] >= args.min_precision and m["recall"] >= args.min_recall and m["image_recall"] >= args.min_image_recall]
         if eligible:
             threshold, selected = max(eligible, key=lambda item: item[1]["iou"])
         else:
             threshold, selected = max(((float(t), m) for t, m in metrics.items()), key=lambda item: item[1]["iou"])
-        score = selected["iou"] if selected["precision"] >= args.min_precision and selected["recall"] >= args.min_recall else selected["iou"] * 0.5
+        meets_deployment_gate = (
+            selected["precision"] >= args.min_precision
+            and selected["recall"] >= args.min_recall
+            and selected["image_recall"] >= args.min_image_recall
+        )
+        # Never let a higher pixel IoU overwrite a deployable checkpoint when
+        # it completely misses too many positive images.
+        score = selected["iou"] if meets_deployment_gate else selected["iou"] * 0.5
         row = {"epoch": epoch, "loss": float(np.mean(losses)), "threshold": threshold, **selected, "all_thresholds": metrics}
         history.append(row)
         print(json.dumps({key: value for key, value in row.items() if key != "all_thresholds"}), flush=True)
@@ -250,6 +274,7 @@ def parse_args():
     parser.add_argument("--samples-per-epoch", type=int, default=480)
     parser.add_argument("--positive-ratio", type=float, default=0.5)
     parser.add_argument("--lesion-crop-probability", type=float, default=0.0)
+    parser.add_argument("--low-contrast-probability", type=float, default=0.0)
     parser.add_argument("--positive-weight", type=float, default=3.0)
     parser.add_argument("--dice-weight", type=float, default=0.5)
     parser.add_argument("--focal-gamma", type=float, default=0.0)
@@ -260,6 +285,7 @@ def parse_args():
     parser.add_argument("--patience", type=int, default=6)
     parser.add_argument("--min-precision", type=float, default=0.6)
     parser.add_argument("--min-recall", type=float, default=0.5)
+    parser.add_argument("--min-image-recall", type=float, default=0.8)
     parser.add_argument("--thresholds", type=float, nargs="+", default=[0.35, 0.5, 0.65, 0.75, 0.85, 0.9, 0.95])
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--reset-classifier", action="store_true")

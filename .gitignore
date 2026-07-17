@@ -33,6 +33,8 @@ training/datasets/
 
 # retraining outputs
 training_state.pt
+training/checkpoints/SegFormer/experiments/
+training/checkpoints/SegFormer/models_archive/
 *.zip
 *.rar
 

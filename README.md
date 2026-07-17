@@ -1,12 +1,13 @@
 # Skin Analyzer Backend
 
-FastAPI backend for facial skin analysis using MediaPipe for face detection, BiSeNet for skin-tone extraction, and Claude Vision for per-region skin assessment.
+FastAPI backend for facial skin analysis using MediaPipe for face detection, independent SegFormer models for skin-condition segmentation, BiSeNet for skin-tone extraction, and Claude Vision for per-region skin assessment.
 
 ## Stack
 
 - FastAPI + Uvicorn: REST API server
 - MediaPipe Tasks API: facial landmark detection and region segmentation
 - BiSeNet + PyTorch: skin mask extraction and RGB estimation
+- SegFormer + PyTorch: independent melasma, vitiligo, and port-wine-stain segmentation
 - OpenCV + Pillow: image processing and validation
 - Anthropic SDK: Claude Vision skin analysis per facial region
 
@@ -14,10 +15,11 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, BiS
 
 1. Image is uploaded via `POST /api/analyze`.
 2. Image is validated and preprocessed.
-3. MediaPipe detects facial regions: forehead, cheeks, nose, and chin.
-4. BiSeNet estimates the global skin RGB/HEX value.
-5. Region crops are sent concurrently to Claude Vision.
-6. Results are aggregated into a final report with color comparison and foundation recommendations.
+3. SegFormer runs independent disease-vs-rest segmentation on the detected face.
+4. BiSeNet parses healthy skin regions and excludes detected condition pixels from tone estimation.
+5. Region crops are sent concurrently to Claude Vision with SegFormer context.
+6. Low-confidence melasma evidence is confirmed only when independent region analysis finds spots in at least two matching facial regions.
+7. Results are aggregated into a final report with condition overlays, color comparison, and foundation recommendations.
 
 ## Project Structure
 
@@ -88,6 +90,17 @@ venv\Scripts\Activate.ps1   # (PowerShell)
 pip install -r requirements.txt
 ```
 
+The requirements are hardware-neutral and do not pin a CUDA wheel. A normal `pip`
+installation works on CPU-only machines. NVIDIA hosts may install the matching PyTorch
+CUDA wheel from the official PyTorch package index; the application automatically uses
+CUDA when `torch.cuda.is_available()` is true.
+
+Verify the active PyTorch device:
+
+```powershell
+venv\Scripts\python -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+```
+
 Create `.env` in `Back_Lumiere/` (example):
 
 ```env
@@ -149,5 +162,21 @@ Request: `multipart/form-data` with a `file` field. Supported formats are JPG, P
 
 ## Python Version
 
-Requires Python 3.13.
+Requires Python 3.11 or newer.
+
+## SegFormer Models and Training
+
+Promoted independent checkpoints are stored under:
+
+```text
+training/checkpoints/SegFormer/models/
+```
+
+The melasma model uses a 512 x 512 input and a deployment threshold of `0.50`.
+Training data is expected outside this repository under `../Model_Segformer` with
+prepared `images/`, `masks/`, and `splits/` directories. The reusable trainer is
+`training/SegFormer/train_independent.py`; it supports cross-disease negative samples,
+lesion crops, low-contrast augmentation, pixel metrics, image-level recall, and early
+stopping. Detailed experiment results are recorded in
+`training/TRAINING_HISTORY.md`.
 

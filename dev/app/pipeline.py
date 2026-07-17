@@ -73,6 +73,43 @@ def _condition_imperfections(condition_map: dict) -> list:
     return output
 
 
+def _confirm_melasma_candidate(report: dict, condition_map: dict, candidates: dict):
+    """Confirm a soft melasma mask only with independent region evidence."""
+    candidate = candidates.get("melasma") if isinstance(candidates, dict) else None
+    if not candidate or condition_map.get("melasma", {}).get("detected"):
+        return None
+
+    spot_types = {"mancha", "spot", "mancha_solar"}
+    spot_regions = {
+        item.get("regiao")
+        for item in report.get("imperfeicoes", [])
+        if str(item.get("tipo", "")).strip().lower() in spot_types
+    }
+    spot_regions.discard(None)
+    candidate_regions = {
+        ZONE_TO_REGION.get(zone)
+        for zone in candidate.get("zones", [])
+    }
+    candidate_regions.discard(None)
+    supporting_regions = spot_regions & candidate_regions
+
+    # Requiring two independently analysed regions protects against turning a
+    # single freckle, shadow, or compression artefact into a melasma result.
+    if len(supporting_regions) < 2:
+        return None
+
+    condition_map["melasma"] = {
+        "detected": True,
+        "suspected": True,
+        "source": "segformer_spot_fusion",
+        "threshold": candidate["threshold"],
+        "area_percent": candidate["area_percent"],
+        "zones": candidate["zones"],
+        "supporting_regions": sorted(supporting_regions),
+    }
+    return candidate["mask"]
+
+
 def _empty_condition_outputs(img_array: np.ndarray) -> dict:
     h, w = img_array.shape[:2]
 
@@ -86,6 +123,7 @@ def _empty_condition_outputs(img_array: np.ndarray) -> dict:
             "crow_s_feet": {"detected": False, "area_percent": 0, "zones": []},
             "nasolabial_fold": {"detected": False, "area_percent": 0, "zones": []},
         },
+        "condition_candidates": {},
     }
 
 
@@ -223,6 +261,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     segformer_outputs = await _run_segformer_first(loop, img_array)
     condition_mask = segformer_outputs["condition_mask"]
     condition_map = segformer_outputs["condition_map"]
+    condition_candidates = segformer_outputs.get("condition_candidates", {})
     segformer_debug = _debug_save_segformer_outputs(
     img_array,
     condition_mask,
@@ -266,6 +305,11 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     }
 
     report = build_final_report(region_results, skin_tone)
+    confirmed_melasma_mask = _confirm_melasma_candidate(
+        report, condition_map, condition_candidates
+    )
+    if confirmed_melasma_mask is not None:
+        condition_mask[confirmed_melasma_mask > 0] = 2
     segformer_imperfections = _condition_imperfections(condition_map)
     existing_imperfections = report.get("imperfeicoes", [])
     report["imperfeicoes"] = existing_imperfections + segformer_imperfections
