@@ -7,7 +7,7 @@ def _candidate():
     return {
         "melasma": {
             "mask": np.ones((4, 4), dtype=np.uint8),
-            "threshold": 0.55,
+            "threshold": 0.20,
             "area_percent": 8.0,
             "zones": ["forehead", "left_cheek", "right_cheek"],
         }

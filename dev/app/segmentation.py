@@ -50,7 +50,7 @@ MAX_AREA_PERCENT = 60.0
 # Keep lower-confidence melasma pixels for multimodal confirmation. They are
 # never reported as melasma unless the region analyser independently observes
 # spots in more than one facial zone.
-MELASMA_CANDIDATE_THRESHOLD = 0.55
+MELASMA_CANDIDATE_THRESHOLD = 0.20
 
 _MODEL: Optional[dict] = None
 _INDEPENDENT_MODELS: Optional[List[dict]] = None
@@ -521,11 +521,18 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
                 (int(candidate_mask.sum()) / float(h * w)) * 100, 2
             )
             if MIN_AREA_PERCENT <= candidate_area <= MAX_AREA_PERCENT:
+                candidate_zones = _estimate_zones(candidate_mask)
                 condition_candidates["melasma"] = {
                     "mask": candidate_mask,
                     "threshold": MELASMA_CANDIDATE_THRESHOLD,
                     "area_percent": candidate_area,
-                    "zones": _estimate_zones(candidate_mask),
+                    "zones": candidate_zones,
+                }
+                condition_map["melasma"]["candidate"] = {
+                    "threshold": MELASMA_CANDIDATE_THRESHOLD,
+                    "area_percent": candidate_area,
+                    "zones": candidate_zones,
+                    "max_probability": round(float(melasma_probability.max()), 4),
                 }
         return {
             "condition_mask": unified_mask,

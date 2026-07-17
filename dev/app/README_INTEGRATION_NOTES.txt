@@ -8,7 +8,7 @@ Files in this package:
        port_wine_stain -> wine_stain
    - Loads promoted independent models from training/checkpoints/SegFormer/models/.
    - The promoted melasma model uses 512px input and threshold 0.50.
-   - Preserves melasma evidence from threshold 0.55 for multimodal confirmation when
+   - Preserves melasma evidence from threshold 0.20 for multimodal confirmation when
      the hard deployment mask does not trigger.
 
 2. app/pipeline.py
