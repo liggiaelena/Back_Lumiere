@@ -50,7 +50,7 @@ MAX_AREA_PERCENT = 60.0
 # Keep lower-confidence melasma pixels for multimodal confirmation. They are
 # never reported as melasma unless the region analyser independently observes
 # spots in more than one facial zone.
-MELASMA_CANDIDATE_THRESHOLD = 0.20
+MELASMA_CANDIDATE_THRESHOLD = 0.55
 
 _MODEL: Optional[dict] = None
 _INDEPENDENT_MODELS: Optional[List[dict]] = None

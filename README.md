@@ -18,7 +18,7 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, ind
 3. SegFormer runs independent disease-vs-rest segmentation on the detected face.
 4. BiSeNet parses healthy skin regions and excludes detected condition pixels from tone estimation.
 5. Region crops are sent concurrently to Claude Vision with SegFormer context.
-6. Low-confidence melasma evidence (candidate threshold `0.20`) is confirmed only when independent region analysis finds spots in at least two matching facial regions; the standalone deployment threshold remains `0.50`.
+6. Low-confidence melasma evidence (candidate threshold `0.55`) is confirmed only when independent region analysis finds spots in at least two matching facial regions; the standalone deployment threshold remains `0.50`.
 7. Results are aggregated into a final report with condition overlays, color comparison, and foundation recommendations.
 
 ## Project Structure
