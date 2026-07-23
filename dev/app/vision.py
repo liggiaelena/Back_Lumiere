@@ -11,17 +11,15 @@ _anthropic_client: Optional[object] = None
 
 def _get_anthropic_client():
     global _anthropic_client
-
     if _anthropic_client is None:
         try:
             import anthropic
-
             _anthropic_client = anthropic.Anthropic(
                 api_key=settings.anthropic_api_key,
             )
-        except Exception:
+        except Exception as exc:
+            print(f"[Vision] Anthropic client creation failed.: {exc}")
             _anthropic_client = None
-
     return _anthropic_client
 
 
@@ -56,7 +54,14 @@ Required structure:
       "reason": "short non-diagnostic reason"
     }}
   }},
-  "notas": "observation in {target_lang}, maximum 1 sentence"
+  "notas": {{
+    "en": "observation in English, maximum 1 sentence",
+    "tw": "observation in Traditional Chinese, maximum 1 sentence",
+    "zh": "observation in Simplified Chinese, maximum 1 sentence",
+    "pt": "observation in Portuguese, maximum 1 sentence",
+    "fr": "observation in French, maximum 1 sentence",
+    "tr": "observation in Turkish, maximum 1 sentence"
+  }}
 }}
 
 Fitzpatrick scale: 1=very light, 2=light, 3=medium light, 4=medium, 5=dark, 6=very dark.
@@ -123,11 +128,9 @@ def _build_prompt(
             indent=2,
         )
 
-    target_lang = LANGUAGE_MAP.get(lang, "English")
     return BASE_PROMPT.format(
         region_name=region_name,
         condition_context=condition_context,
-        target_lang=target_lang,
     )
 
 
@@ -157,6 +160,7 @@ async def analyze_region(
         client = _get_anthropic_client()
 
         if client is None:
+            print("[Vision] Anthropic client is None, returning fallback response.")
             return _fallback_response()
 
         try:
@@ -192,10 +196,6 @@ async def analyze_region(
 
         raw = result.content[0].text.strip()
 
-    elif provider == "gemini":
-        # Gemini integration is not implemented yet.
-        return _fallback_response()
-
     else:
         return _fallback_response()
 
@@ -222,5 +222,12 @@ def _fallback_response() -> dict:
                 "reason": "Analysis unavailable for this region.",
             }
         },
-        "notas": "Analysis unavailable for this region.",
+        "notas": {
+            "en": "Analysis unavailable for this region.",
+            "tw": "該區域暫無分析數據。",
+            "zh": "该区域暂无分析数据。",
+            "pt": "Análise indisponível para esta região.",
+            "fr": "Analyse non disponible pour cette région.",
+            "tr": "Bu bölge için analiz mevcut değil."
+        },
     }

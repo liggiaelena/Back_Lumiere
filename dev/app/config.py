@@ -6,7 +6,6 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
-    gemini_api_key: Optional[str] = None
     max_image_size_mb: int = 10
     max_image_side: int = 1024
 
@@ -23,8 +22,7 @@ class Settings(BaseSettings):
         """
         if self.anthropic_api_key:
             return "anthropic"
-        if self.gemini_api_key:
-            return "gemini"
+
         return "none"
 
 
