@@ -160,7 +160,6 @@ Lumière 系統目前各個模型檔案的配置與運作狀態盤點如下：
 | **SegFormer 聯合多工作業模型** | `SegformerForSemanticSegmentation` | `training/checkpoints/SegFormer/deprecated/unified/best` (與 `last`) | **備用** (第二順位備援) | 早期 4 分類聯合分割模型（背景、白斑、黃褐斑、鮮紅斑痣）。當無符合品質 gate 的獨立專家模型時，做為 Fallback 載入。 |
 | **MediaPipe Face Landmarker** | `FaceLandmarker` (TFLite) | 下載至本機：`~/face_landmarker.task` | **備用** | 478 特徵點網格定位模型，對應 `mediapipe_utils.py`。目前裁剪職責已被 BiSeNet 19 分類取代，僅供備用。 |
 | **SegFormer 順序微調歷史模型群** | `SegformerForSemanticSegmentation` | `training/checkpoints/SegFormer/deprecated/` 下之微調子目錄 | **未使用** (歷史封存) | 包含各單一疾病（Vitiligo、Melasma、Port wine stain）順序微調的歷史存檔模型，目前已不被執行期加載。 |
-| **Gemini VLM** | `Gemini` API | 遠端 Google Gemini API | **未使用** (未開發完成) | `config.py` 預留 API Key 載入，但 `vision.py` 尚未撰寫具體調用實作，目前處於未使用狀態。 |
 
 ---
 

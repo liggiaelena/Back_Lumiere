@@ -16,10 +16,7 @@ class Settings(BaseSettings):
 
     @property
     def provider(self) -> str:
-        """Return the name of the configured provider: 'anthropic', 'gemini', or 'none'.
-
-        Anthropic is preferred when both keys are present.
-        """
+        """Return the name of the configured provider: 'anthropic' or 'none'."""
         if self.anthropic_api_key:
             return "anthropic"
 
