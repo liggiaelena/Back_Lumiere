@@ -1,17 +1,19 @@
 {
   "target": "melasma",
-  "threshold": 0.5,
+  "threshold": 0.75,
   "image_size": 512,
   "metrics": {
-    "tp": 672866,
-    "fp": 328580,
-    "fn": 456644,
-    "iou": 0.4614708282753465,
-    "precision": 0.6718944406388362,
-    "recall": 0.5957149560428858,
-    "validation_iou": 0.5627241756171669,
-    "validation_precision": 0.7516755914955985,
-    "validation_recall": 0.6912242944017427,
-    "validation_image_recall": 0.8125
+    "tp": 2884465,
+    "fp": 708202,
+    "fn": 903646,
+    "positive_images": 101,
+    "detected_positive_images": 97,
+    "negative_images": 238,
+    "false_positive_images": 3,
+    "iou": 0.6415178391717836,
+    "precision": 0.8028756909560502,
+    "recall": 0.7614520799416913,
+    "image_recall": 0.9603960396039604,
+    "image_false_positive_rate": 0.012605042016806723
   }
 }

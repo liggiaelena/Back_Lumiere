@@ -83,6 +83,8 @@ class OneVsRestDataset(Dataset):
     @staticmethod
     def image_path(root: Path, name: str) -> Path:
         path = Path(name)
+        if path.is_absolute() and path.exists():
+            return path
         if path.suffix.lower() in EXTENSIONS and (root / "images" / path.name).exists():
             return root / "images" / path.name
         stem = OneVsRestDataset.stem(name)
@@ -191,6 +193,8 @@ def train(args):
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
     device = torch.device(args.device)
     paths = dataset_paths(args.dataset_root)
+    if args.melasma_dataset is not None:
+        paths["melasma"] = args.melasma_dataset
     if args.vitiligo_dataset is not None:
         paths["vitiligo"] = args.vitiligo_dataset
     validate_mask_integrity(paths[args.target])
@@ -264,6 +268,7 @@ def parse_args():
     parser.add_argument("--target", choices=DATASET_NAMES, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--dataset-root", type=Path, required=True)
+    parser.add_argument("--melasma-dataset", type=Path)
     parser.add_argument("--vitiligo-dataset", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--device", default="cpu")

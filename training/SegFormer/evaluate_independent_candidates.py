@@ -49,8 +49,8 @@ def filter_components(prediction: np.ndarray, minimum_percent: float) -> np.ndar
 
 
 @torch.inference_mode()
-def evaluate(checkpoint: Path, target_label: str, target_dataset: str, datasets: dict[str, Path], image_size: int, split: str, erosion_kernel: int, minimum_component_percent: float, lightness_percentile: float, saturation_percentile: float) -> dict:
-    model = SegformerForSemanticSegmentation.from_pretrained(checkpoint).eval()
+def evaluate(checkpoint: Path, target_label: str, target_dataset: str, datasets: dict[str, Path], image_size: int, split: str, erosion_kernel: int, minimum_component_percent: float, lightness_percentile: float, saturation_percentile: float, device: str = "cpu") -> dict:
+    model = SegformerForSemanticSegmentation.from_pretrained(checkpoint).to(device).eval()
     labels = {int(key): value for key, value in model.config.id2label.items()}
     target_ids = [idx for idx, label in labels.items() if label == target_label]
     if not target_ids:
@@ -70,12 +70,12 @@ def evaluate(checkpoint: Path, target_label: str, target_dataset: str, datasets:
             mask_path = dataset_dir / "masks" / f"{stem}.png"
             image = Image.open(image_path).convert("RGB").resize((image_size, image_size), Image.Resampling.BILINEAR)
             mask = Image.open(mask_path).convert("L").resize((image_size, image_size), Image.Resampling.NEAREST)
-            pixel_values = TF.normalize(TF.to_tensor(image), MEAN, STD).unsqueeze(0)
+            pixel_values = TF.normalize(TF.to_tensor(image), MEAN, STD).unsqueeze(0).to(device)
             logits = model(pixel_values=pixel_values).logits
             logits = F.interpolate(logits, size=(image_size, image_size), mode="bilinear", align_corners=False)
             probabilities = logits.softmax(1)
-            argmax = logits.argmax(1).squeeze(0).numpy() == target_id
-            target_probability = probabilities[0, target_id].numpy()
+            argmax = logits.argmax(1).squeeze(0).cpu().numpy() == target_id
+            target_probability = probabilities[0, target_id].cpu().numpy()
             image_rgb = np.asarray(image)
             lab = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2LAB)
             hsv = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2HSV)
@@ -127,7 +127,9 @@ def main() -> None:
     parser.add_argument("--target-label", required=True)
     parser.add_argument("--target-dataset", required=True)
     parser.add_argument("--dataset-root", type=Path, required=True)
+    parser.add_argument("--melasma-dataset", type=Path)
     parser.add_argument("--vitiligo-dataset", type=Path)
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--split", choices=("val", "test"), default="val")
     parser.add_argument("--erosion-kernel", type=int, default=0)
@@ -143,7 +145,9 @@ def main() -> None:
     }
     if args.vitiligo_dataset is not None:
         datasets["vitiligo"] = args.vitiligo_dataset
-    result = evaluate(args.checkpoint, args.target_label, args.target_dataset, datasets, args.image_size, args.split, args.erosion_kernel, args.minimum_component_percent, args.lightness_percentile, args.saturation_percentile)
+    if args.melasma_dataset is not None:
+        datasets["melasma_like_hyperpigmentation"] = args.melasma_dataset
+    result = evaluate(args.checkpoint, args.target_label, args.target_dataset, datasets, args.image_size, args.split, args.erosion_kernel, args.minimum_component_percent, args.lightness_percentile, args.saturation_percentile, args.device)
     text = json.dumps(result, indent=2)
     print(text)
     if args.output:

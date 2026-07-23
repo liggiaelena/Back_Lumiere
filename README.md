@@ -105,7 +105,6 @@ Create `.env` in `Back_Lumiere/` (example):
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-your-key-here
-# or GEMINI_API_KEY=your-gemini-key-here
 ```
 
 ## Run Development API
