@@ -1,4 +1,7 @@
 
+# Git metadata
+.git/
+
 # Python virtual environments
 venv/
 env/

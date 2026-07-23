@@ -1,14 +1,18 @@
+import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from app.logging_config import setup_logging
 from app.pipeline import run_pipeline
 from app.image_utils import load_and_validate
 from app.db import engine
 from app.data_service import save_analysis, get_analysis
-import traceback
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Skin Analyzer API", version="0.1.0")
 
@@ -63,6 +67,7 @@ def health():
             conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "unreachable"
+    logger.info("Health check requested (db=%s)", db_status)
     return {"status": "ok", "service": "skin-analyzer", "db": db_status}
 
 @app.post("/api/analyze")
@@ -72,6 +77,7 @@ async def analyze(file: UploadFile = File(...), lang: str = "en"):
         raise HTTPException(400, detail="Invalid format. Use JPG, PNG or WebP.")
 
     contents = await file.read()
+    logger.info("Received image for analysis (%d bytes, lang=%s)", len(contents), lang)
 
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(413, detail="Image too large. Maximum 10MB.")
@@ -81,11 +87,13 @@ async def analyze(file: UploadFile = File(...), lang: str = "en"):
         result = await run_pipeline(img_rgb, lang=lang)
         analysis_id = save_analysis(result)
         result["id"] = analysis_id
+        logger.info("Analysis completed successfully (id=%s)", analysis_id)
         return JSONResponse(content=result)
     except ValueError as e:
+        logger.error("Analysis rejected: %s", e)
         raise HTTPException(422, detail=str(e))
     except Exception:
-        traceback.print_exc()
+        logger.error("Internal error while analyzing the image", exc_info=True)
         raise HTTPException(500, detail="Internal error while analyzing the image.")
 
 @app.get("/api/analyze/{analyze_id}")
@@ -93,8 +101,9 @@ def get_analyze(analyze_id: str):
     try:
         result = get_analysis(analyze_id)
     except Exception:
-        traceback.print_exc()
+        logger.error("Internal error while fetching analysis %s", analyze_id, exc_info=True)
         raise HTTPException(500, detail="Internal error while fetching the analysis.")
     if result is None:
         raise HTTPException(404, detail="Analyze result not found.")
+    logger.info("Fetched analysis result (id=%s)", analyze_id)
     return JSONResponse(content=result)
