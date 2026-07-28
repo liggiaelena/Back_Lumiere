@@ -1,6 +1,8 @@
 import logging
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,6 +12,13 @@ from app.pipeline import run_pipeline
 from app.image_utils import load_and_validate
 from app.db import engine
 from app.data_service import save_analysis, get_analysis
+from app.auth import create_access_token, decode_access_token, verify_password
+from app.user_service import (
+    create_user,
+    ensure_users_table,
+    find_user_by_email,
+    find_user_by_id,
+)
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -26,37 +35,119 @@ app.add_middleware(
 )
 
 
-# --- User registration (planned, disabled) ---
 class _Profile(BaseModel):
+    first_name: Optional[str] = Field(default=None, max_length=100)
+    last_name: Optional[str] = Field(default=None, max_length=100)
+    age: Optional[int] = Field(default=None, ge=13, le=120)
+    skin_type_self_assessed: Optional[str] = Field(default=None, max_length=50)
+
+
+class UserRegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$")
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    profile: Optional[_Profile] = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, password: str) -> str:
+        if not any(char.isalpha() for char in password) or not any(
+            char.isdigit() for char in password
+        ):
+            raise ValueError("Password must include at least one letter and one number.")
+        return password
+
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    email: EmailStr
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     age: Optional[int] = None
     skin_type_self_assessed: Optional[str] = None
+    created_at: datetime
 
 
-class UserRegisterRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-    profile: Optional[_Profile] = None
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
+
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def public_user(user: dict) -> dict:
+    return {key: value for key, value in user.items() if key != "password_hash"}
+
+
+def current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> dict:
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = find_user_by_id(decode_access_token(credentials.credentials))
+    if not user:
+        raise HTTPException(status_code=401, detail="User account no longer exists.")
+    return user
+
+
+@app.on_event("startup")
+def initialize_database():
+    ensure_users_table()
 
 
 @app.post(
     "/api/users/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
     include_in_schema=False,
-    summary="(disabled) Register a new user",
+)
+@app.post(
+    "/api/auth/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
 )
 async def register_user(req: UserRegisterRequest):
-    """User registration endpoint (disabled).
+    try:
+        user = create_user(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    token, expires_in = create_access_token(user["id"])
+    return {
+        "access_token": token,
+        "expires_in": expires_in,
+        "user": public_user(user),
+    }
 
-    This route is intentionally disabled and returns HTTP 501. When enabled,
-    it should validate input, create a user record, and return the created
-    user's ID or a suitable response. For now it returns a clear 501 JSON.
-    """
-    return JSONResponse(
-        content={"detail": "User registration feature is planned but currently disabled."},
-        status_code=501,
-    )
+
+@app.post("/api/auth/login", response_model=AuthResponse)
+async def login_user(req: UserLoginRequest):
+    user = find_user_by_email(str(req.email))
+    if not user or not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    token, expires_in = create_access_token(user["id"])
+    return {
+        "access_token": token,
+        "expires_in": expires_in,
+        "user": public_user(user),
+    }
+
+
+@app.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user(user: dict = Depends(current_user)):
+    return user
 
 
 @app.get("/")

@@ -26,6 +26,7 @@ services:
       # Overrides whatever DATABASE_URL is in .env: inside the compose
       # network the database is reachable at host "db", not "localhost".
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-123456}@db:5432/lumiere_db
+      JWT_SECRET: ${JWT_SECRET:-lumiere-development-secret-change-me}
     depends_on:
       db:
         condition: service_healthy
