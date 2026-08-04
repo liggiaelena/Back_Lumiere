@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 import base64
@@ -18,6 +19,8 @@ from app.color_utils import build_final_report
 from app.color_analyzer import analyze_region_colors, analyze_skin_tone
 from app.face_detection import detect_and_zoom_face
 
+
+logger = logging.getLogger(__name__)
 
 try:
     from app.segmentation import get_condition_outputs
@@ -237,6 +240,7 @@ async def _run_segformer_first(loop, img_array: np.ndarray) -> dict:
 
 
 async def run_pipeline(img_rgb, lang: str = "en") -> dict:
+    logger.info("Pipeline started (lang=%s)", lang)
     img_data = preprocess(img_rgb)
     img_array = img_data["array"]
 
@@ -247,6 +251,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     img_array, face_detection = await loop.run_in_executor(
         None, detect_and_zoom_face, img_array
     )
+    logger.info("Face detected and cropped (MediaPipe)")
     success, face_encoded = cv2.imencode(
         ".jpg", cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
     )
@@ -262,6 +267,10 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     condition_mask = segformer_outputs["condition_mask"]
     condition_map = segformer_outputs["condition_map"]
     condition_candidates = segformer_outputs.get("condition_candidates", {})
+    detected_conditions = [
+        name for name, details in condition_map.items() if details.get("detected")
+    ]
+    logger.info("SegFormer condition segmentation completed (detected=%s)", detected_conditions)
     segformer_debug = _debug_save_segformer_outputs(
     img_array,
     condition_mask,
@@ -274,6 +283,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         parse_face,
         img_array,
     )
+    logger.info("BiSeNet face parsing completed")
     region_masks = build_face_region_masks(img_array, parsing_map)
     crops = extract_region_crops(img_array, region_masks)
 
@@ -285,6 +295,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         condition_mask,
         region_masks,
     )
+    logger.info("Skin tone and region color analysis completed (median_hex=%s)", skin_tone.get("median_hex"))
 
     # 3. Claude receives condition_map as context.
     region_tasks = [
@@ -303,6 +314,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         region: result
         for (region, _), result in zip(crops.items(), results_list)
     }
+    logger.info("Claude region analysis completed (%d regions)", len(region_results))
 
     report = build_final_report(region_results, skin_tone)
     confirmed_melasma_mask = _confirm_melasma_candidate(
@@ -329,5 +341,6 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         }
         for region, data in crops.items()
     }
+    logger.info("Pipeline finished, report built")
 
     return report

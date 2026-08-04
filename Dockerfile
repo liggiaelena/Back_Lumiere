@@ -3,8 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PYTHONPATH=/app/dev \
-    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lumiere_db
+    PYTHONPATH=/app/dev
 
 WORKDIR /app
 

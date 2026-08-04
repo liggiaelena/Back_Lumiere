@@ -23,6 +23,9 @@ from app.user_service import (
 setup_logging()
 logger = logging.getLogger(__name__)
 
+from app.config import log_startup_config
+log_startup_config()
+
 app = FastAPI(title="Skin Analyzer API", version="0.1.0")
 
 app.add_middleware(

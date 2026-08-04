@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import random
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,16 @@ DISEASE_CLASS_IDS = {
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 NORMALIZE_MEAN = [0.485, 0.456, 0.406]
 NORMALIZE_STD = [0.229, 0.224, 0.225]
+
+
+def env_default(name: str, default, cast=str):
+    """Read a training default from a Docker environment variable, falling
+    back to the hardcoded default when it isn't set. CLI flags still win
+    over both, since argparse only uses `default` when the flag is omitted."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return cast(value)
 
 
 class DiseaseSegmentationDataset(Dataset):
@@ -418,6 +429,10 @@ def set_seed(seed: int) -> None:
 def save_metadata(output_dir: Path, args, train_datasets: dict[str, DiseaseSegmentationDataset]) -> None:
     metadata = {
         "model_name": "lumiere_segformer_unified_joint",
+        "experiment_name": args.experiment_name,
+        "experiment_version": args.experiment_version,
+        "feature_names": args.feature_names.split(","),
+        "expected_accuracy": args.expected_accuracy,
         "training_mode": "joint_multitask",
         "class_mapping": {str(key): value for key, value in ID2LABEL.items()},
         "datasets": {
@@ -440,6 +455,10 @@ def train(args) -> None:
     set_seed(args.seed)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"experiment_name={args.experiment_name} experiment_version={args.experiment_version}")
+    print(f"feature_names={args.feature_names}")
+    print(f"expected_accuracy={args.expected_accuracy}")
 
     train_datasets = make_datasets(args, "train", augment=not args.no_augment)
     val_datasets = make_datasets(args, "val", augment=False)
@@ -572,6 +591,8 @@ def train(args) -> None:
             break
 
     print(f"best_selection_score={best_score:.4f}")
+    accuracy_status = "PASS" if best_score >= args.expected_accuracy else "BELOW_TARGET"
+    print(f"expected_accuracy={args.expected_accuracy} result={accuracy_status}")
     print(f"saved_best={output_dir / 'best'}")
     print(f"saved_last={output_dir / 'last'}")
 
@@ -588,14 +609,38 @@ def parse_args():
     parser.add_argument("--port-wine-stain-dataset", default="data-collection/port_wine_stain/processed")
     parser.add_argument("--vitiligo-dataset", default="data-collection/vitiligo")
     parser.add_argument("--image-size", type=int, default=512)
-    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--batch-size", type=int, default=env_default("BATCH_SIZE", 2, int))
     parser.add_argument("--eval-batch-size", type=int)
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--learning-rate", type=float, default=5e-5)
+    parser.add_argument("--epochs", type=int, default=env_default("NUM_EPOCHS", 50, int))
+    parser.add_argument("--learning-rate", type=float, default=env_default("LEARNING_RATE", 5e-5, float))
     parser.add_argument("--min-lr", type=float, default=1e-6)
-    parser.add_argument("--weight-decay", type=float, default=0.01)
-    parser.add_argument("--class-weights", type=float, nargs=4, default=[0.3, 2.0, 2.0, 2.0])
+    parser.add_argument("--weight-decay", type=float, default=env_default("WEIGHT_DECAY", 0.01, float))
+    parser.add_argument(
+        "--class-weights",
+        type=float,
+        nargs=4,
+        default=[float(w) for w in os.environ.get("CLASS_WEIGHTS", "0.3,2.0,2.0,2.0").split(",")],
+    )
     parser.add_argument("--dice-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--feature-names",
+        default=os.environ.get("FEATURE_NAMES", "vitiligo,melasma,port_wine_stain"),
+        help="Comma-separated condition/feature names this experiment trains on.",
+    )
+    parser.add_argument(
+        "--expected-accuracy",
+        type=float,
+        default=env_default("EXPECTED_ACCURACY", 0.55, float),
+        help="Target mean IoU; the run reports PASS/BELOW_TARGET against this at the end.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        default=os.environ.get("EXPERIMENT_NAME", "lumiere_segformer_unified"),
+    )
+    parser.add_argument(
+        "--experiment-version",
+        default=os.environ.get("EXPERIMENT_VERSION", "v1"),
+    )
     parser.add_argument("--min-iou-weight", type=float, default=0.25)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--num-workers", type=int, default=0)

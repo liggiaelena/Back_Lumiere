@@ -1,8 +1,11 @@
+import logging
 import secrets
 from psycopg2.extras import Json as PsycopgJson
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.db import engine
+
+logger = logging.getLogger(__name__)
 
 
 def save_analysis(result: dict) -> str:
@@ -25,6 +28,7 @@ def save_analysis(result: dict) -> str:
             },
         )
         session.commit()
+    logger.info("Saved analysis to database (id=%s)", analysis_id)
     return analysis_id
 
 
@@ -36,9 +40,11 @@ def get_analysis(analysis_id: str) -> dict | None:
         ).fetchone()
 
     if row is None:
+        logger.info("Analysis not found in database (id=%s)", analysis_id)
         return None
 
     data: dict = dict(row.result_json)
     data["id"] = row.id
     data["created_at"] = row.created_at.isoformat()
+    logger.info("Loaded analysis from database (id=%s)", analysis_id)
     return data
