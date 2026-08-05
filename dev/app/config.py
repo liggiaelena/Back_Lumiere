@@ -22,6 +22,7 @@ def read_secret(name: str) -> Optional[str]:
 
 class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
+    claude_model: str = "claude-opus-4-5"
     max_image_size_mb: int = 10
     max_image_side: int = 1024
 

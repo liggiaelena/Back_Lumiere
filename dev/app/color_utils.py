@@ -152,7 +152,7 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
             todas_imperf.append({**imp, "regiao": region})
 
     condition_map = build_condition_map_from_regions(regioes)
-    recommendations = get_recommendations(
+    recommendation_result = get_recommendations(
         tom_geral,
         subtom_geral,
         skin_hex=bisenet_hex,
@@ -167,7 +167,10 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
         "regioes":                regioes,
         "comparacao_tons":        comparacoes,
         "imperfeicoes":           todas_imperf,
-        "recommendations":        recommendations,
+        "recommendations":        recommendation_result["shades"],
+        # False when no shade was within the color-distance threshold — the
+        # listed shades are the closest available, not a confident match.
+        "recommendations_reliable": recommendation_result["reliable"],
         "skin_tone":              skin_tone,
         "condition_map":          condition_map,
     }

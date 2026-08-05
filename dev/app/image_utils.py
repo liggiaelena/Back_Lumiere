@@ -22,13 +22,18 @@ def load_and_validate(contents: bytes) -> np.ndarray:
     if min(h, w) < 300:
         raise ValueError("Image too small. Please use at least 300x300px.")
 
-    mean_brightness = img_rgb.mean()
-    if mean_brightness < 20:
-        raise ValueError("Image too dark. Please improve the lighting.")
-    if mean_brightness > 235:
-        raise ValueError("Image too bright or overexposed.")
-
     return img_rgb
+
+
+def validate_face_brightness(face_img_rgb: np.ndarray) -> None:
+    """Check exposure on the detected/cropped face region, not the whole
+    photo — a dark background or bright wall behind a well-lit face (or
+    vice versa) shouldn't affect this check."""
+    mean_brightness = face_img_rgb.mean()
+    if mean_brightness < 20:
+        raise ValueError("Face region too dark. Please improve the lighting.")
+    if mean_brightness > 235:
+        raise ValueError("Face region too bright or overexposed.")
 
 
 def preprocess(img_rgb: np.ndarray) -> dict:

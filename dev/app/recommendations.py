@@ -1,3 +1,6 @@
+# price_range values are static examples captured at development time, not
+# fetched from any live pricing source. They will drift from actual retail
+# prices over time and should not be treated as current/authoritative.
 _DATABASE = [
     # ── FENTY BEAUTY ──────────────────────────────────────────────────────────
     {"brand": "Fenty Beauty", "shade_name": "110N", "shade_code": "110N",
@@ -101,7 +104,9 @@ _UNDERTONE_FALLBACK = {
     "neutro": ["neutro", "quente", "frio"],
 }
 
-# Max color-distance to consider a shade "close enough" to the skin tone
+# Max color-distance to consider a shade "close enough" to the skin tone.
+# Heuristic value chosen by eye during development, not derived from a
+# validated color-matching study. Revisit if shade recommendations look off.
 _MAX_DELTA = 60
 _CONDITION_CONFIDENCE_THRESHOLD = 0.5
 
@@ -168,25 +173,32 @@ def get_recommendations(
     skin_hex: str | None = None,
     max_per_brand: int = 1,
     condition_map: dict | None = None,
-) -> list[dict]:
+) -> dict:
     """
     Return the best-matching shade per brand.
 
     When skin_hex is provided (BiSeNet median), shades are ranked by color
     distance to the actual skin tone, filtered by undertone preference.
     Falls back to Fitzpatrick-range matching when skin_hex is absent.
+
+    The returned dict's `reliable` flag is False when no shade was within
+    _MAX_DELTA of the skin tone — callers/UI should tell the user these are
+    the closest available options, not a confident match.
     """
     priority = _UNDERTONE_FALLBACK.get(undertone, ["neutro", "quente", "frio"])
 
     if skin_hex:
-        recommendations = _match_by_color(skin_hex, priority, max_per_brand)
+        recommendations, reliable = _match_by_color(skin_hex, priority, max_per_brand)
     else:
-        recommendations = _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand)
+        recommendations, reliable = _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand)
 
-    return _apply_condition_recommendations(recommendations, condition_map)
+    return {
+        "shades": _apply_condition_recommendations(recommendations, condition_map),
+        "reliable": reliable,
+    }
 
 
-def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> list:
+def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> tuple[list, bool]:
     """Rank shades by color distance to skin_hex, respecting undertone priority."""
     results = []
     brands_seen: dict[str, int] = {}
@@ -209,26 +221,29 @@ def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> list:
         results.append(_format(shade))
         brands_seen[brand] = brands_seen.get(brand, 0) + 1
 
-    # If color filter was too strict, fall back to closest shades regardless of delta
-    if not results:
-        all_scored = sorted(
-            _DATABASE,
-            key=lambda s: (
-                priority.index(s["undertone"]) if s["undertone"] in priority else len(priority),
-                _color_delta(skin_hex, s["shade_hex"])
-            )
+    if results:
+        return results, True
+
+    # No shade was within _MAX_DELTA: fall back to the closest ones regardless
+    # of distance, but tell the caller this match is not reliable.
+    all_scored = sorted(
+        _DATABASE,
+        key=lambda s: (
+            priority.index(s["undertone"]) if s["undertone"] in priority else len(priority),
+            _color_delta(skin_hex, s["shade_hex"])
         )
-        for shade in all_scored:
-            brand = shade["brand"]
-            if brands_seen.get(brand, 0) >= max_per_brand:
-                continue
-            results.append(_format(shade))
-            brands_seen[brand] = brands_seen.get(brand, 0) + 1
+    )
+    for shade in all_scored:
+        brand = shade["brand"]
+        if brands_seen.get(brand, 0) >= max_per_brand:
+            continue
+        results.append(_format(shade))
+        brands_seen[brand] = brands_seen.get(brand, 0) + 1
 
-    return results
+    return results, False
 
 
-def _match_by_fitzpatrick(fitzpatrick: int, priority: list, max_per_brand: int) -> list:
+def _match_by_fitzpatrick(fitzpatrick: int, priority: list, max_per_brand: int) -> tuple[list, bool]:
     """Legacy Fitzpatrick-range matching, used when no skin hex is available."""
     # Map Fitzpatrick to approximate skin hex using the same reference points as color_utils
     _FITZPATRICK_HEX = {

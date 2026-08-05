@@ -71,11 +71,15 @@ def detect_and_zoom_face(
             mp.Image(image_format=mp.ImageFormat.SRGB, data=image)
         )
 
-    best = _pick_largest_detection(result.detections)
-    if best is None:
+    if not result.detections:
         raise ValueError(
             "No face detected. Please center your face and use adequate lighting."
         )
+    if len(result.detections) > 1:
+        raise ValueError(
+            "Multiple faces detected. Please submit a photo with only one person."
+        )
+    best = _pick_largest_detection(result.detections)
 
     box = best.bounding_box
     face_x1 = max(0, int(box.origin_x))

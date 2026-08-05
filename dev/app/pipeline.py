@@ -8,13 +8,13 @@ import asyncio
 
 import cv2
 import numpy as np
-from app.image_utils import preprocess
+from app.image_utils import preprocess, validate_face_brightness
 from app.face_parsing_bisenet import (
     build_face_region_masks,
     extract_region_crops,
     parse_face,
 )
-from app.vision import analyze_region
+from app.vision import analyze_region, fallback_response
 from app.color_utils import build_final_report
 from app.color_analyzer import analyze_region_colors, analyze_skin_tone
 from app.face_detection import detect_and_zoom_face
@@ -252,6 +252,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         None, detect_and_zoom_face, img_array
     )
     logger.info("Face detected and cropped (MediaPipe)")
+    validate_face_brightness(img_array)
     success, face_encoded = cv2.imencode(
         ".jpg", cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
     )
@@ -308,12 +309,16 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         for region, data in crops.items()
     ]
 
-    results_list = await asyncio.gather(*region_tasks)
+    # return_exceptions=True: one region raising an unexpected exception must
+    # not discard the other regions that already succeeded.
+    results_list = await asyncio.gather(*region_tasks, return_exceptions=True)
 
-    region_results = {
-        region: result
-        for (region, _), result in zip(crops.items(), results_list)
-    }
+    region_results = {}
+    for (region, _), result in zip(crops.items(), results_list):
+        if isinstance(result, Exception):
+            logger.error("Region '%s' analysis raised an unexpected exception: %s", region, result)
+            result = fallback_response()
+        region_results[region] = result
     logger.info("Claude region analysis completed (%d regions)", len(region_results))
 
     report = build_final_report(region_results, skin_tone)

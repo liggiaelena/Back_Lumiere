@@ -23,7 +23,7 @@ from app.user_service import (
 setup_logging()
 logger = logging.getLogger(__name__)
 
-from app.config import log_startup_config
+from app.config import log_startup_config, settings
 log_startup_config()
 
 app = FastAPI(title="Skin Analyzer API", version="0.1.0")
@@ -173,8 +173,9 @@ async def analyze(file: UploadFile = File(...), lang: str = "en"):
     contents = await file.read()
     logger.info("Received image for analysis (%d bytes, lang=%s)", len(contents), lang)
 
-    if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(413, detail="Image too large. Maximum 10MB.")
+    max_bytes = settings.max_image_size_mb * 1024 * 1024
+    if len(contents) > max_bytes:
+        raise HTTPException(413, detail=f"Image too large. Maximum {settings.max_image_size_mb}MB.")
 
     try:
         img_rgb = load_and_validate(contents)

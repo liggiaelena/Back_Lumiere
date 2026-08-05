@@ -1,8 +1,40 @@
 import json
+import logging
 import asyncio
 from typing import Optional, Dict, Any
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+_VALID_SUBTOM = {"quente", "frio", "neutro"}
+_VALID_OLEOSIDADE = {"seco", "normal", "misto", "oleoso"}
+
+
+def _validate_region_response(data: Any) -> bool:
+    """Check that Claude's JSON actually has the fields/types the prompt
+    asked for, instead of accepting any parseable JSON at face value."""
+    if not isinstance(data, dict):
+        return False
+
+    if not isinstance(data.get("tom_hex"), str) or not data["tom_hex"].startswith("#"):
+        return False
+    if not isinstance(data.get("tom_fitzpatrick"), (int, float)) or not (1 <= data["tom_fitzpatrick"] <= 6):
+        return False
+    if data.get("subtom") not in _VALID_SUBTOM:
+        return False
+    if data.get("oleosidade") not in _VALID_OLEOSIDADE:
+        return False
+    if not isinstance(data.get("imperfeicoes"), list):
+        return False
+    if not isinstance(data.get("uniformidade"), (int, float)) or not (0 <= data["uniformidade"] <= 10):
+        return False
+    if not isinstance(data.get("condition_map"), dict):
+        return False
+    if not isinstance(data.get("notas"), dict):
+        return False
+
+    return True
 
 
 # Lazy client holder
@@ -18,7 +50,7 @@ def _get_anthropic_client():
                 api_key=settings.anthropic_api_key,
             )
         except Exception as exc:
-            print(f"[Vision] Anthropic client creation failed.: {exc}")
+            logger.error("Anthropic client creation failed: %s", exc)
             _anthropic_client = None
     return _anthropic_client
 
@@ -160,14 +192,14 @@ async def analyze_region(
         client = _get_anthropic_client()
 
         if client is None:
-            print("[Vision] Anthropic client is None, returning fallback response.")
-            return _fallback_response()
+            logger.error("Anthropic client is None, returning fallback response.")
+            return fallback_response()
 
         try:
             result = await loop.run_in_executor(
                 None,
                 lambda: client.messages.create(
-                    model="claude-opus-4-5",
+                    model=settings.claude_model,
                     max_tokens=512,
                     messages=[
                         {
@@ -191,24 +223,34 @@ async def analyze_region(
                 ),
             )
         except Exception as exc:
-            print(f"[Vision] Anthropic analysis failed. Using fallback response. Error: {exc}")
-            return _fallback_response()
+            logger.error("Anthropic analysis failed, using fallback response: %s", exc)
+            return fallback_response()
 
         raw = result.content[0].text.strip()
 
     else:
-        return _fallback_response()
+        return fallback_response()
 
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError:
-        return _fallback_response()
+        logger.warning("Claude response for region '%s' was not valid JSON: %r", region_name, raw[:200])
+        return fallback_response()
+
+    if not _validate_region_response(parsed):
+        logger.warning("Claude response for region '%s' failed schema validation: %r", region_name, parsed)
+        return fallback_response()
+
+    return parsed
 
 
-def _fallback_response() -> dict:
+def fallback_response() -> dict:
+    """Placeholder used when no real analysis could be obtained. Callers
+    MUST check `analysis_unavailable` before treating these values as real
+    measurements — they are not derived from the image at all."""
     return {
         "tom_hex": "#c68b6e",
         "tom_fitzpatrick": 3,
@@ -216,6 +258,7 @@ def _fallback_response() -> dict:
         "oleosidade": "normal",
         "imperfeicoes": [],
         "uniformidade": 5,
+        "analysis_unavailable": True,
         "condition_map": {
             "melanoma_suspected": {
                 "confidence": 0.0,
