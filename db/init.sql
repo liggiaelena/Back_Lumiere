@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS analyses (
     id                     VARCHAR      PRIMARY KEY,
+    user_id                UUID,
     created_at             TIMESTAMPTZ  DEFAULT now(),
     tom_geral_fitzpatrick  INTEGER,
     tom_geral_hex          VARCHAR,
@@ -7,6 +8,9 @@ CREATE TABLE IF NOT EXISTS analyses (
     subtom_predominante    VARCHAR,
     result_json            JSONB        NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS analyses_user_created_idx
+    ON analyses (user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS users (
     id                      UUID         PRIMARY KEY,

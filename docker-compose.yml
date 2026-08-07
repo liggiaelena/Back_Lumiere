@@ -20,6 +20,8 @@ services:
   backend:
     build: .
     restart: unless-stopped
+    volumes:
+      - ./training/checkpoints:/app/training/checkpoints:ro
     env_file:
       - .env
     environment:

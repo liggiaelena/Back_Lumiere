@@ -11,7 +11,12 @@ from app.logging_config import setup_logging
 from app.pipeline import run_pipeline
 from app.image_utils import load_and_validate
 from app.db import engine
-from app.data_service import save_analysis, get_analysis
+from app.data_service import (
+    ensure_analysis_ownership,
+    get_analysis,
+    list_user_analyses,
+    save_analysis,
+)
 from app.auth import create_access_token, decode_access_token, verify_password
 from app.user_service import (
     create_user,
@@ -106,9 +111,18 @@ def current_user(
     return user
 
 
+def optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> Optional[dict]:
+    if not credentials:
+        return None
+    return current_user(credentials)
+
+
 @app.on_event("startup")
 def initialize_database():
     ensure_users_table()
+    ensure_analysis_ownership()
 
 
 @app.post(
@@ -165,7 +179,11 @@ def health():
     return {"status": "ok", "service": "skin-analyzer", "db": db_status}
 
 @app.post("/api/analyze")
-async def analyze(file: UploadFile = File(...), lang: str = "en"):
+async def analyze(
+    file: UploadFile = File(...),
+    lang: str = "en",
+    user: Optional[dict] = Depends(optional_current_user),
+):
     ALLOWED = {"image/jpeg", "image/png", "image/webp"}
     if file.content_type not in ALLOWED:
         raise HTTPException(400, detail="Invalid format. Use JPG, PNG or WebP.")
@@ -180,7 +198,7 @@ async def analyze(file: UploadFile = File(...), lang: str = "en"):
     try:
         img_rgb = load_and_validate(contents)
         result = await run_pipeline(img_rgb, lang=lang)
-        analysis_id = save_analysis(result)
+        analysis_id = save_analysis(result, user["id"] if user else None)
         result["id"] = analysis_id
         logger.info("Analysis completed successfully (id=%s)", analysis_id)
         return JSONResponse(content=result)
@@ -191,10 +209,18 @@ async def analyze(file: UploadFile = File(...), lang: str = "en"):
         logger.error("Internal error while analyzing the image", exc_info=True)
         raise HTTPException(500, detail="Internal error while analyzing the image.")
 
+@app.get("/api/analyze")
+def get_history(user: dict = Depends(current_user)):
+    return {"items": list_user_analyses(user["id"])}
+
+
 @app.get("/api/analyze/{analyze_id}")
-def get_analyze(analyze_id: str):
+def get_analyze(
+    analyze_id: str,
+    user: Optional[dict] = Depends(optional_current_user),
+):
     try:
-        result = get_analysis(analyze_id)
+        result = get_analysis(analyze_id, user["id"] if user else None)
     except Exception:
         logger.error("Internal error while fetching analysis %s", analyze_id, exc_info=True)
         raise HTTPException(500, detail="Internal error while fetching the analysis.")
