@@ -26,9 +26,9 @@ from app.user_service import (
 )
 from app.gpt_recommendations import (
     DEFAULT_ALLERGEN_OPTIONS,
-    RecommendationUnavailableError,
-    recommend_products,
 )
+from app.fallback_catalog.product_service import ensure_product_tables
+from app.recommendation_service import AllRecommendationStrategiesFailed, recommend_with_fallback
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -128,6 +128,7 @@ def optional_current_user(
 def initialize_database():
     ensure_users_table()
     ensure_analysis_ownership()
+    ensure_product_tables()
 
 
 @app.post(
@@ -265,7 +266,7 @@ async def refresh_recommendations(
         return {"recommendations": [], "recommendations_reliable": False, "recommendations_blocked": True, "recommendations_status": "blocked"}
 
     try:
-        recommendation_result = await recommend_products(
+        recommendation_result = await recommend_with_fallback(
             fitzpatrick=result["tom_geral_fitzpatrick"],
             undertone=result["subtom_predominante"],
             skin_hex=result.get("tom_geral_hex") or "#c68b6e",
@@ -273,7 +274,7 @@ async def refresh_recommendations(
             excluded_allergens=_parse_allergens(excluded_allergens),
             lang=result.get("lang", "en"),
         )
-    except RecommendationUnavailableError as exc:
+    except AllRecommendationStrategiesFailed as exc:
         return {
             "recommendations": [],
             "recommendations_reliable": False,
@@ -292,6 +293,9 @@ async def refresh_recommendations(
         "recommendations_status": "ready",
         "recommendations_search_summary": recommendation_result["search_summary"],
         "recommendations_model": recommendation_result["model"],
+        "recommendations_strategy": recommendation_result["strategy"],
+        "recommendations_fallback_used": recommendation_result["fallback_used"],
+        "recommendations_primary_error": recommendation_result["primary_error"],
     }
 
 

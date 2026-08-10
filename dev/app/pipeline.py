@@ -18,7 +18,7 @@ from app.vision import analyze_region, fallback_response
 from app.color_utils import build_final_report
 from app.color_analyzer import analyze_region_colors, analyze_skin_tone
 from app.face_detection import detect_and_zoom_face
-from app.gpt_recommendations import RecommendationUnavailableError, recommend_products
+from app.recommendation_service import AllRecommendationStrategiesFailed, recommend_with_fallback
 
 
 logger = logging.getLogger(__name__)
@@ -359,7 +359,7 @@ async def run_pipeline(
         report["recommendations_status"] = "blocked"
     else:
         try:
-            recommendation_result = await recommend_products(
+            recommendation_result = await recommend_with_fallback(
                 skin_hex=report["tom_geral_hex"],
                 fitzpatrick=report["tom_geral_fitzpatrick"],
                 undertone=report["subtom_predominante"],
@@ -373,10 +373,13 @@ async def run_pipeline(
             report["recommendations_catalog_shades_considered"] = recommendation_result["catalog_shades_considered"]
             report["recommendations_search_summary"] = recommendation_result["search_summary"]
             report["recommendations_model"] = recommendation_result["model"]
+            report["recommendations_strategy"] = recommendation_result["strategy"]
+            report["recommendations_fallback_used"] = recommendation_result["fallback_used"]
+            report["recommendations_primary_error"] = recommendation_result["primary_error"]
             report["recommendations_status"] = "ready"
             report["recommendations_error"] = None
-        except RecommendationUnavailableError as exc:
-            logger.warning("Live web recommendations unavailable: %s", exc)
+        except AllRecommendationStrategiesFailed as exc:
+            logger.warning("All recommendation strategies unavailable: %s", exc)
             report["recommendations"] = []
             report["recommendations_reliable"] = False
             report["recommendations_status"] = "unavailable"
