@@ -173,6 +173,7 @@ def get_recommendations(
     skin_hex: str | None = None,
     max_per_brand: int = 1,
     condition_map: dict | None = None,
+    excluded_allergens: list[str] | None = None,
 ) -> dict:
     """
     Return the best-matching shade per brand.
@@ -187,25 +188,34 @@ def get_recommendations(
     """
     priority = _UNDERTONE_FALLBACK.get(undertone, ["neutro", "quente", "frio"])
 
+    # Kept lazy so offline colour/model tests do not need a live database.
+    from app.product_service import catalog_source_name, load_available_shades
+    database = load_available_shades(excluded_allergens)
+
     if skin_hex:
-        recommendations, reliable = _match_by_color(skin_hex, priority, max_per_brand)
+        recommendations, reliable = _match_by_color(skin_hex, priority, max_per_brand, database)
     else:
-        recommendations, reliable = _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand)
+        recommendations, reliable = _match_by_fitzpatrick(fitzpatrick, priority, max_per_brand, database)
 
     return {
         "shades": _apply_condition_recommendations(recommendations, condition_map),
         "reliable": reliable,
+        "catalog_source": catalog_source_name(),
+        "catalog_shades_considered": len(database),
     }
 
 
-def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> tuple[list, bool]:
+def _match_by_color(
+    skin_hex: str, priority: list, max_per_brand: int, database: list[dict] | None = None
+) -> tuple[list, bool]:
     """Rank shades by color distance to skin_hex, respecting undertone priority."""
     results = []
     brands_seen: dict[str, int] = {}
 
     # Score every shade: primary sort = undertone priority tier, secondary = color delta
     scored = []
-    for shade in _DATABASE:
+    database = _DATABASE if database is None else database
+    for shade in database:
         delta = _color_delta(skin_hex, shade["shade_hex"])
         if delta > _MAX_DELTA:
             continue
@@ -227,7 +237,7 @@ def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> tuple[
     # No shade was within _MAX_DELTA: fall back to the closest ones regardless
     # of distance, but tell the caller this match is not reliable.
     all_scored = sorted(
-        _DATABASE,
+        database,
         key=lambda s: (
             priority.index(s["undertone"]) if s["undertone"] in priority else len(priority),
             _color_delta(skin_hex, s["shade_hex"])
@@ -243,7 +253,9 @@ def _match_by_color(skin_hex: str, priority: list, max_per_brand: int) -> tuple[
     return results, False
 
 
-def _match_by_fitzpatrick(fitzpatrick: int, priority: list, max_per_brand: int) -> tuple[list, bool]:
+def _match_by_fitzpatrick(
+    fitzpatrick: int, priority: list, max_per_brand: int, database: list[dict] | None = None
+) -> tuple[list, bool]:
     """Legacy Fitzpatrick-range matching, used when no skin hex is available."""
     # Map Fitzpatrick to approximate skin hex using the same reference points as color_utils
     _FITZPATRICK_HEX = {
@@ -251,19 +263,36 @@ def _match_by_fitzpatrick(fitzpatrick: int, priority: list, max_per_brand: int) 
         4: "#b07d5b", 5: "#7d4e2d", 6: "#3e1f0e",
     }
     skin_hex = _FITZPATRICK_HEX.get(fitzpatrick, "#c68b6e")
-    return _match_by_color(skin_hex, priority, max_per_brand)
+    return _match_by_color(skin_hex, priority, max_per_brand, database)
 
 
 def _format(shade: dict) -> dict:
-    return {
+    formatted = {
         "brand":       shade["brand"],
+        "product_id":  shade.get("product_id"),
+        "product_name": shade.get("product_name"),
+        "data_source": shade.get("data_source"),
         "shade_name":  shade["shade_name"],
         "shade_code":  shade["shade_code"],
         "shade_hex":   shade["shade_hex"],
+        "shade_hex_source": shade.get("shade_hex_source"),
+        "shade_hex_confidence": float(shade["shade_hex_confidence"])
+            if shade.get("shade_hex_confidence") is not None else None,
         "undertone":   shade["undertone"],
-        "price_range": shade["price_range"],
-        "where_to_buy": shade["where_to_buy"],
+        "price":       float(shade["price"]) if shade.get("price") is not None else None,
+        "currency":    shade.get("currency"),
+        "image_url":   shade.get("image_url"),
+        "allergens":   shade.get("allergens", []),
+        "ingredients": shade.get("ingredients", []),
+        "base_product_url": shade.get("product_url"),
+        "shade_url": shade.get("shade_url"),
+        "product_url": shade.get("shade_url") or shade.get("product_url") or shade.get("where_to_buy"),
+        "price_fetched_at": shade.get("fetched_at").isoformat()
+            if hasattr(shade.get("fetched_at"), "isoformat") else shade.get("fetched_at"),
     }
+    formatted["price_range"] = shade.get("price_range")
+    formatted["where_to_buy"] = formatted["product_url"]
+    return formatted
 
 
 def _apply_condition_recommendations(recommendations: list[dict], condition_map: dict | None) -> list[dict]:

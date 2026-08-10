@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, status
+from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
@@ -23,6 +23,11 @@ from app.user_service import (
     ensure_users_table,
     find_user_by_email,
     find_user_by_id,
+)
+from app.gpt_recommendations import (
+    DEFAULT_ALLERGEN_OPTIONS,
+    RecommendationUnavailableError,
+    recommend_products,
 )
 
 setup_logging()
@@ -178,11 +183,24 @@ def health():
     logger.info("Health check requested (db=%s)", db_status)
     return {"status": "ok", "service": "skin-analyzer", "db": db_status}
 
+def _parse_allergens(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        value = __import__("json").loads(raw)
+        if isinstance(value, list):
+            return sorted({str(item).strip() for item in value if str(item).strip()})
+    except (ValueError, TypeError):
+        pass
+    return sorted({item.strip() for item in raw.split(",") if item.strip()})
+
+
 @app.post("/api/analyze")
 async def analyze(
     file: UploadFile = File(...),
     lang: str = "en",
     user: Optional[dict] = Depends(optional_current_user),
+    excluded_allergens: str = Form(default=""),
 ):
     ALLOWED = {"image/jpeg", "image/png", "image/webp"}
     if file.content_type not in ALLOWED:
@@ -197,7 +215,11 @@ async def analyze(
 
     try:
         img_rgb = load_and_validate(contents)
-        result = await run_pipeline(img_rgb, lang=lang)
+        result = await run_pipeline(
+            img_rgb,
+            lang=lang,
+            excluded_allergens=_parse_allergens(excluded_allergens),
+        )
         analysis_id = save_analysis(result, user["id"] if user else None)
         result["id"] = analysis_id
         logger.info("Analysis completed successfully (id=%s)", analysis_id)
@@ -228,3 +250,52 @@ def get_analyze(
         raise HTTPException(404, detail="Analyze result not found.")
     logger.info("Fetched analysis result (id=%s)", analyze_id)
     return JSONResponse(content=result)
+
+
+@app.get("/api/analyze/{analyze_id}/recommendations")
+async def refresh_recommendations(
+    analyze_id: str,
+    excluded_allergens: str = Query(default=""),
+    user: Optional[dict] = Depends(optional_current_user),
+):
+    result = get_analysis(analyze_id, user["id"] if user else None)
+    if result is None:
+        raise HTTPException(404, detail="Analyze result not found.")
+    if result.get("recommendations_blocked"):
+        return {"recommendations": [], "recommendations_reliable": False, "recommendations_blocked": True, "recommendations_status": "blocked"}
+
+    try:
+        recommendation_result = await recommend_products(
+            fitzpatrick=result["tom_geral_fitzpatrick"],
+            undertone=result["subtom_predominante"],
+            skin_hex=result.get("tom_geral_hex") or "#c68b6e",
+            condition_map=result.get("segformer_condition_map") or result.get("condition_map"),
+            excluded_allergens=_parse_allergens(excluded_allergens),
+            lang=result.get("lang", "en"),
+        )
+    except RecommendationUnavailableError as exc:
+        return {
+            "recommendations": [],
+            "recommendations_reliable": False,
+            "recommendations_catalog_source": "openai_web_search",
+            "recommendations_catalog_shades_considered": None,
+            "recommendations_blocked": False,
+            "recommendations_status": "unavailable",
+            "recommendations_error": str(exc),
+        }
+    return {
+        "recommendations": recommendation_result["shades"],
+        "recommendations_reliable": recommendation_result["reliable"],
+        "recommendations_catalog_source": recommendation_result["catalog_source"],
+        "recommendations_catalog_shades_considered": recommendation_result["catalog_shades_considered"],
+        "recommendations_blocked": False,
+        "recommendations_status": "ready",
+        "recommendations_search_summary": recommendation_result["search_summary"],
+        "recommendations_model": recommendation_result["model"],
+    }
+
+
+@app.get("/api/products/allergens")
+def get_catalog_allergens():
+    """Values the frontend can render as allergen-exclusion checkboxes."""
+    return {"allergens": DEFAULT_ALLERGEN_OPTIONS}

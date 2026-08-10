@@ -22,6 +22,8 @@ def read_secret(name: str) -> Optional[str]:
 
 class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    openai_recommendation_model: str = "gpt-5.6-terra"
     claude_model: str = "claude-opus-4-5"
     max_image_size_mb: int = 10
     max_image_side: int = 1024
@@ -42,6 +44,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 settings.anthropic_api_key = read_secret("anthropic_api_key") or settings.anthropic_api_key
+settings.openai_api_key = read_secret("openai_api_key") or settings.openai_api_key
 
 # Experiment config (set by the training service; harmless defaults here so
 # the backend can report the current values even when it's the one booting).
@@ -59,7 +62,8 @@ def log_startup_config() -> None:
         EXPERIMENT_NAME, EXPERIMENT_VERSION, NUM_EPOCHS, LEARNING_RATE,
     )
     logger.info(
-        "Secrets resolved from /run/secrets: db_password=%s, anthropic_api_key=%s",
+        "Secrets resolved from /run/secrets: db_password=%s, anthropic_api_key=%s, openai_api_key=%s",
         "***" if read_secret("db_password") else "MISSING",
         "***" if read_secret("anthropic_api_key") else "MISSING",
+        "***" if settings.openai_api_key else "MISSING",
     )

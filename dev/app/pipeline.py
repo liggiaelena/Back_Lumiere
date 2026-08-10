@@ -18,6 +18,7 @@ from app.vision import analyze_region, fallback_response
 from app.color_utils import build_final_report
 from app.color_analyzer import analyze_region_colors, analyze_skin_tone
 from app.face_detection import detect_and_zoom_face
+from app.gpt_recommendations import RecommendationUnavailableError, recommend_products
 
 
 logger = logging.getLogger(__name__)
@@ -239,7 +240,9 @@ async def _run_segformer_first(loop, img_array: np.ndarray) -> dict:
         ) from exc
 
 
-async def run_pipeline(img_rgb, lang: str = "en") -> dict:
+async def run_pipeline(
+    img_rgb, lang: str = "en", excluded_allergens: list[str] | None = None
+) -> dict:
     logger.info("Pipeline started (lang=%s)", lang)
     img_data = preprocess(img_rgb)
     img_array = img_data["array"]
@@ -321,7 +324,12 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         region_results[region] = result
     logger.info("Claude region analysis completed (%d regions)", len(region_results))
 
-    report = build_final_report(region_results, skin_tone)
+    report = build_final_report(
+        region_results,
+        skin_tone,
+        excluded_allergens,
+        detected_condition_map=condition_map,
+    )
     confirmed_melasma_mask = _confirm_melasma_candidate(
         report, condition_map, condition_candidates
     )
@@ -338,6 +346,7 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
     report["segformer_debug"] = segformer_debug
     report["face_detection"] = face_detection
     report["face_image"] = face_image
+    report["lang"] = lang
     report["face_regions"] = {
         region: {
             "bbox": data["bbox"],
@@ -346,6 +355,32 @@ async def run_pipeline(img_rgb, lang: str = "en") -> dict:
         }
         for region, data in crops.items()
     }
+    if report.get("recommendations_blocked"):
+        report["recommendations_status"] = "blocked"
+    else:
+        try:
+            recommendation_result = await recommend_products(
+                skin_hex=report["tom_geral_hex"],
+                fitzpatrick=report["tom_geral_fitzpatrick"],
+                undertone=report["subtom_predominante"],
+                condition_map=report.get("recommendation_condition_map"),
+                excluded_allergens=excluded_allergens,
+                lang=lang,
+            )
+            report["recommendations"] = recommendation_result["shades"]
+            report["recommendations_reliable"] = recommendation_result["reliable"]
+            report["recommendations_catalog_source"] = recommendation_result["catalog_source"]
+            report["recommendations_catalog_shades_considered"] = recommendation_result["catalog_shades_considered"]
+            report["recommendations_search_summary"] = recommendation_result["search_summary"]
+            report["recommendations_model"] = recommendation_result["model"]
+            report["recommendations_status"] = "ready"
+            report["recommendations_error"] = None
+        except RecommendationUnavailableError as exc:
+            logger.warning("Live web recommendations unavailable: %s", exc)
+            report["recommendations"] = []
+            report["recommendations_reliable"] = False
+            report["recommendations_status"] = "unavailable"
+            report["recommendations_error"] = str(exc)
     logger.info("Pipeline finished, report built")
 
     return report

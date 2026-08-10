@@ -10,7 +10,6 @@ def color_delta(hex1: str, hex2: str) -> float:
     r2, g2, b2 = hex_to_rgb(hex2)
     return ((0.299*(r1-r2))**2 + (0.587*(g1-g2))**2 + (0.114*(b1-b2))**2)**0.5
 
-from app.recommendations import get_recommendations
 from app.medical_alert import apply_medical_triage, build_condition_map_from_regions
 
 def _average_hex(hex_list: list) -> str:
@@ -110,7 +109,12 @@ def _lab_f(value: float) -> float:
 
     return (kappa * value + 16.0) / 116.0
 
-def build_final_report(region_results: dict, skin_tone: dict | None = None) -> dict:
+def build_final_report(
+    region_results: dict,
+    skin_tone: dict | None = None,
+    excluded_allergens: list[str] | None = None,
+    detected_condition_map: dict | None = None,
+) -> dict:
     regioes = region_results
 
     tons_fitz = [r["tom_fitzpatrick"] for r in regioes.values()]
@@ -152,13 +156,7 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
             todas_imperf.append({**imp, "regiao": region})
 
     condition_map = build_condition_map_from_regions(regioes)
-    recommendation_result = get_recommendations(
-        tom_geral,
-        subtom_geral,
-        skin_hex=bisenet_hex,
-        condition_map=condition_map,
-    )
-
+    recommendation_condition_map = {**(detected_condition_map or {}), **condition_map}
     response = {
         "tom_geral_fitzpatrick":  tom_geral,
         "tom_geral_hex":          bisenet_hex or tom_geral_hex,
@@ -167,12 +165,17 @@ def build_final_report(region_results: dict, skin_tone: dict | None = None) -> d
         "regioes":                regioes,
         "comparacao_tons":        comparacoes,
         "imperfeicoes":           todas_imperf,
-        "recommendations":        recommendation_result["shades"],
+        "recommendations":        [],
         # False when no shade was within the color-distance threshold — the
         # listed shades are the closest available, not a confident match.
-        "recommendations_reliable": recommendation_result["reliable"],
+        "recommendations_reliable": False,
+        "recommendations_catalog_source": "openai_web_search",
+        "recommendations_catalog_shades_considered": None,
+        "recommendations_status": "pending",
+        "recommendations_error": None,
         "skin_tone":              skin_tone,
         "condition_map":          condition_map,
+        "recommendation_condition_map": recommendation_condition_map,
     }
 
     return apply_medical_triage(response)

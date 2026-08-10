@@ -139,26 +139,39 @@ Generated files are written to `data-collection/outputs/`.
 
 ## API
 
-### OpenAI live web recommendations
+### Live makeup product catalogue
 
-After photo analysis and the medical-safety gate, the backend calls the OpenAI
-Responses API with web search. It requests 3-8 current products, exact shade
-codes, prices, ingredients/allergens, and verifiable product/source URLs. The
-old scraped PostgreSQL catalogue is no longer imported by the application and
-is preserved under `deprecated/database_catalog_recommendations/`.
+Foundation recommendations are read from PostgreSQL rather than from the old
+in-code sample list. Synchronize official product pages before serving traffic:
 
-Configure an API key before starting the backend:
-
-```env
-OPENAI_API_KEY=your_api_key
-OPENAI_RECOMMENDATION_MODEL=gpt-5.6-terra
+```powershell
+python dev/product_sync.py --sources dev/product_sources.json
 ```
 
-If the API key, web search, source URLs, or required ingredient evidence is
-unavailable, the API returns `recommendations_status=unavailable` and no
-products. It never falls back to the deprecated catalogue. With allergen
-exclusions enabled, products without sufficient ingredient evidence are also
-removed.
+Run this command on a schedule (for example every six hours) to refresh price,
+availability, ingredients, detected allergens, and the original product URL.
+The bundled source file now tracks 16 foundation lines across 13 source domains,
+including Fenty Beauty, MAC, Maybelline, Estée Lauder, Dior, Haus Labs,
+Clinique, L'Oréal Paris, Charlotte Tilbury, NARS, Sephora, Ulta, HUDA BEAUTY,
+Urban Decay, and MAKE UP FOR EVER. The synchronizer supports JSON-LD, embedded
+Shopify/Next.js JSON, JavaScript swatch objects, HTML swatches, and colour
+estimation from official swatch images. Estimated colours store
+`shade_hex_source=official_swatch_image_estimate` and a confidence score; only
+scores of at least `0.75` are eligible for recommendations.
+
+Some retailers (notably Sephora and several Estée-owned sites) return HTTP 403
+to server-side catalogue clients. Those entries remain visible in the source
+manifest for an approved affiliate/API adapter, but a failed fetch is never
+written over the last successful database record. The command exits non-zero
+when any configured source fails so production monitoring can report it.
+
+Each source may define `fallback_urls`. The synchronizer tries the brand page
+first and then authorized retailer listings for the exact product. The actual
+host used is persisted as `data_source`, while `product_url` points to the page
+whose live price and ingredients were imported. Current fallbacks use Ulta for
+MAC, Estée Lauder, Dior, Clinique, Charlotte Tilbury, NARS, and Lancôme.
+Retailer HTML is not a stable API, so a failed source must leave the previously
+fetched database row intact and should be monitored in production.
 
 `POST /api/analyze` accepts an optional multipart field named
 `excluded_allergens`. It may be a JSON array (`["fragrance","lanolin"]`) or a
@@ -170,9 +183,9 @@ GET /api/analyze/{analysis_id}/recommendations?excluded_allergens=fragrance,lano
 GET /api/products/allergens
 ```
 
-Each recommendation contains `product_url`/`where_to_buy` plus `source_urls`;
-the frontend uses the product URL as the product-card link. Live calls add API
-latency and incur OpenAI API/tool usage charges.
+Each recommendation contains `product_url`; the frontend should use that value
+as the product-card link. Price responses also contain `currency` and
+`price_fetched_at` so the UI can disclose freshness.
 
 ### `GET /`
 
