@@ -19,7 +19,7 @@ from transformers import SegformerConfig, SegformerForSemanticSegmentation
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
-DATASET_NAMES = ("melasma", "vitiligo", "port_wine_stain")
+DISEASE_DATASET_NAMES = ("melasma", "vitiligo", "port_wine_stain")
 
 
 def dataset_paths(root: Path) -> dict[str, Path]:
@@ -138,9 +138,16 @@ class OneVsRestDataset(Dataset):
         return image.crop(box), mask.crop(box)
 
     def balanced_weights(self, positive_ratio: float):
-        counts = {name: self.groups.count(name) for name in DATASET_NAMES}
-        negative_ratio = (1.0 - positive_ratio) / 2
-        ratios = {name: (positive_ratio if name == self.target else negative_ratio) for name in DATASET_NAMES}
+        dataset_names = tuple(dict.fromkeys(self.groups))
+        counts = {name: self.groups.count(name) for name in dataset_names}
+        negative_names = [name for name in dataset_names if name != self.target]
+        if not negative_names:
+            raise ValueError("At least one negative dataset is required")
+        negative_ratio = (1.0 - positive_ratio) / len(negative_names)
+        ratios = {
+            name: (positive_ratio if name == self.target else negative_ratio)
+            for name in dataset_names
+        }
         return [ratios[group] / counts[group] for group in self.groups]
 
 
@@ -197,6 +204,8 @@ def train(args):
         paths["melasma"] = args.melasma_dataset
     if args.vitiligo_dataset is not None:
         paths["vitiligo"] = args.vitiligo_dataset
+    if args.normal_dataset is not None:
+        paths["normal"] = args.normal_dataset
     validate_mask_integrity(paths[args.target])
     train_set = OneVsRestDataset(paths, "train", args.target, args.image_size, True, args.lesion_crop_probability, args.low_contrast_probability)
     val_set = OneVsRestDataset(paths, "val", args.target, args.image_size, False)
@@ -265,11 +274,12 @@ def train(args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target", choices=DATASET_NAMES, required=True)
+    parser.add_argument("--target", choices=DISEASE_DATASET_NAMES, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--melasma-dataset", type=Path)
     parser.add_argument("--vitiligo-dataset", type=Path)
+    parser.add_argument("--normal-dataset", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--image-size", type=int, default=224)

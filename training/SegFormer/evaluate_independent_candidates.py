@@ -22,6 +22,8 @@ EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 
 def find_image(image_dir: Path, item: str) -> Path:
     path = Path(item)
+    if path.is_absolute() and path.exists():
+        return path
     if path.suffix.lower() in EXTENSIONS and (image_dir / path.name).exists():
         return image_dir / path.name
     stem = path.stem if path.suffix.lower() in EXTENSIONS else item
@@ -67,9 +69,12 @@ def evaluate(checkpoint: Path, target_label: str, target_dataset: str, datasets:
             image_path = find_image(dataset_dir / "images", item)
             item_path = Path(item)
             stem = item_path.stem if item_path.suffix.lower() in EXTENSIONS else item
-            mask_path = dataset_dir / "masks" / f"{stem}.png"
             image = Image.open(image_path).convert("RGB").resize((image_size, image_size), Image.Resampling.BILINEAR)
-            mask = Image.open(mask_path).convert("L").resize((image_size, image_size), Image.Resampling.NEAREST)
+            if disease == target_dataset:
+                mask_path = dataset_dir / "masks" / f"{stem}.png"
+                mask = Image.open(mask_path).convert("L").resize((image_size, image_size), Image.Resampling.NEAREST)
+            else:
+                mask = Image.fromarray(np.zeros((image_size, image_size), dtype=np.uint8))
             pixel_values = TF.normalize(TF.to_tensor(image), MEAN, STD).unsqueeze(0).to(device)
             logits = model(pixel_values=pixel_values).logits
             logits = F.interpolate(logits, size=(image_size, image_size), mode="bilinear", align_corners=False)
@@ -129,6 +134,7 @@ def main() -> None:
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--melasma-dataset", type=Path)
     parser.add_argument("--vitiligo-dataset", type=Path)
+    parser.add_argument("--normal-dataset", type=Path)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--split", choices=("val", "test"), default="val")
@@ -147,6 +153,8 @@ def main() -> None:
         datasets["vitiligo"] = args.vitiligo_dataset
     if args.melasma_dataset is not None:
         datasets["melasma_like_hyperpigmentation"] = args.melasma_dataset
+    if args.normal_dataset is not None:
+        datasets["normal"] = args.normal_dataset
     result = evaluate(args.checkpoint, args.target_label, args.target_dataset, datasets, args.image_size, args.split, args.erosion_kernel, args.minimum_component_percent, args.lightness_percentile, args.saturation_percentile, args.device)
     text = json.dumps(result, indent=2)
     print(text)

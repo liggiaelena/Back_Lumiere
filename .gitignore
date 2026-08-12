@@ -52,3 +52,5 @@ logs/
 
 
 *.session.sql
+
+secret/

@@ -18,7 +18,6 @@ from app.vision import analyze_region, fallback_response
 from app.color_utils import build_final_report
 from app.color_analyzer import analyze_region_colors, analyze_skin_tone
 from app.face_detection import detect_and_zoom_face
-from app.recommendation_service import AllRecommendationStrategiesFailed, recommend_with_fallback
 
 
 logger = logging.getLogger(__name__)
@@ -355,35 +354,15 @@ async def run_pipeline(
         }
         for region, data in crops.items()
     }
-    if report.get("recommendations_blocked"):
-        report["recommendations_status"] = "blocked"
-    else:
-        try:
-            recommendation_result = await recommend_with_fallback(
-                skin_hex=report["tom_geral_hex"],
-                fitzpatrick=report["tom_geral_fitzpatrick"],
-                undertone=report["subtom_predominante"],
-                condition_map=report.get("recommendation_condition_map"),
-                excluded_allergens=excluded_allergens,
-                lang=lang,
-            )
-            report["recommendations"] = recommendation_result["shades"]
-            report["recommendations_reliable"] = recommendation_result["reliable"]
-            report["recommendations_catalog_source"] = recommendation_result["catalog_source"]
-            report["recommendations_catalog_shades_considered"] = recommendation_result["catalog_shades_considered"]
-            report["recommendations_search_summary"] = recommendation_result["search_summary"]
-            report["recommendations_model"] = recommendation_result["model"]
-            report["recommendations_strategy"] = recommendation_result["strategy"]
-            report["recommendations_fallback_used"] = recommendation_result["fallback_used"]
-            report["recommendations_primary_error"] = recommendation_result["primary_error"]
-            report["recommendations_status"] = "ready"
-            report["recommendations_error"] = None
-        except AllRecommendationStrategiesFailed as exc:
-            logger.warning("All recommendation strategies unavailable: %s", exc)
-            report["recommendations"] = []
-            report["recommendations_reliable"] = False
-            report["recommendations_status"] = "unavailable"
-            report["recommendations_error"] = str(exc)
+    # Product lookup is intentionally deferred. POST /api/analyze returns the
+    # image analysis immediately; the frontend then fetches recommendations
+    # from the dedicated endpoint and refreshes only that section.
+    report["recommendations"] = []
+    report["recommendations_reliable"] = False
+    report["recommendations_error"] = None
+    report["recommendations_status"] = (
+        "blocked" if report.get("recommendations_blocked") else "pending"
+    )
     logger.info("Pipeline finished, report built")
 
     return report

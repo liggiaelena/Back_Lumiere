@@ -254,6 +254,7 @@ def get_analyze(
 
 
 @app.get("/api/analyze/{analyze_id}/recommendations")
+@app.get("/api/analyze/{analyze_id}/recommendation")
 async def refresh_recommendations(
     analyze_id: str,
     excluded_allergens: str = Query(default=""),
