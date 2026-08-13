@@ -21,25 +21,30 @@ async def recommend_with_fallback(
     condition_map: dict | None = None,
     excluded_allergens: list[str] | None = None,
     lang: str = "en",
+    force_fallback: bool = False,
 ) -> dict:
-    try:
-        result = await recommend_products(
-            skin_hex=skin_hex,
-            fitzpatrick=fitzpatrick,
-            undertone=undertone,
-            condition_map=condition_map,
-            excluded_allergens=excluded_allergens,
-            lang=lang,
-        )
-        return {
-            **result,
-            "strategy": "plan_1_openai_web_search",
-            "fallback_used": False,
-            "primary_error": None,
-        }
-    except RecommendationUnavailableError as primary_exc:
-        logger.warning("Plan 1 failed; trying Neon catalogue fallback: %s", primary_exc)
-        primary_error = str(primary_exc)
+    if force_fallback:
+        primary_error = "Plan 1 skipped after the frontend polling limit was reached."
+        logger.info("Plan 2 explicitly requested; skipping live web search")
+    else:
+        try:
+            result = await recommend_products(
+                skin_hex=skin_hex,
+                fitzpatrick=fitzpatrick,
+                undertone=undertone,
+                condition_map=condition_map,
+                excluded_allergens=excluded_allergens,
+                lang=lang,
+            )
+            return {
+                **result,
+                "strategy": "plan_1_openai_web_search",
+                "fallback_used": False,
+                "primary_error": None,
+            }
+        except RecommendationUnavailableError as primary_exc:
+            logger.warning("Plan 1 failed; trying Neon catalogue fallback: %s", primary_exc)
+            primary_error = str(primary_exc)
 
     try:
         result = await asyncio.to_thread(
@@ -55,7 +60,7 @@ async def recommend_with_fallback(
             raise RuntimeError("Neon catalogue returned no matching products")
         return {
             **result,
-            "search_summary": "Live web search failed; results came from the stored Neon catalogue.",
+            "search_summary": "Results came from the stored Neon catalogue after live search was unavailable or exceeded the polling limit.",
             "model": None,
             "strategy": "plan_2_neon_catalog",
             "fallback_used": True,

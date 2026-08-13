@@ -258,6 +258,7 @@ def get_analyze(
 async def refresh_recommendations(
     analyze_id: str,
     excluded_allergens: str = Query(default=""),
+    force_fallback: bool = Query(default=False),
     user: Optional[dict] = Depends(optional_current_user),
 ):
     result = get_analysis(analyze_id, user["id"] if user else None)
@@ -274,6 +275,7 @@ async def refresh_recommendations(
             condition_map=result.get("segformer_condition_map") or result.get("condition_map"),
             excluded_allergens=_parse_allergens(excluded_allergens),
             lang=result.get("lang", "en"),
+            force_fallback=force_fallback,
         )
     except AllRecommendationStrategiesFailed as exc:
         return {

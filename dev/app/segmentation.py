@@ -10,6 +10,8 @@ import torch.nn.functional as F
 from PIL import Image
 from transformers import SegformerConfig, SegformerForSemanticSegmentation, SegformerImageProcessor
 
+from app.vitiligo_gate import apply_vitiligo_gate
+
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -534,6 +536,7 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
                     "zones": candidate_zones,
                     "max_probability": round(float(melasma_probability.max()), 4),
                 }
+        apply_vitiligo_gate(img_array, unified_mask, condition_map)
         return {
             "condition_mask": unified_mask,
             "condition_map": condition_map,
@@ -568,6 +571,7 @@ def get_condition_outputs(img_array: np.ndarray) -> dict:
                 "zones": _estimate_zones(binary),
             }
 
+    apply_vitiligo_gate(img_array, unified_mask, condition_map)
     return {
         "condition_mask": unified_mask,
         "condition_map": condition_map,

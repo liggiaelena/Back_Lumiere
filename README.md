@@ -214,3 +214,12 @@ lesion crops, low-contrast augmentation, pixel metrics, image-level recall, and 
 stopping. Detailed experiment results are recorded in
 `training/TRAINING_HISTORY.md`.
 
+
+The promoted vitiligo image-level false-positive gate is stored under:
+
+```text
+training/checkpoints/VitiligoClassifier/resnet18/
+```
+
+It is loaded automatically after SegFormer inference. Set `VITILIGO_CLASSIFIER_DIR`
+only when overriding the bundled checkpoint.

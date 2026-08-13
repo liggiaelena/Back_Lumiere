@@ -44,6 +44,18 @@ class RecommendationStrategyTests(unittest.IsolatedAsyncioTestCase):
 
     @patch("app.recommendation_service.get_catalog_recommendations")
     @patch("app.recommendation_service.recommend_products", new_callable=AsyncMock)
+    async def test_force_fallback_skips_plan_one(self, web_search, catalog):
+        catalog.return_value = {
+            "shades": [{"brand": "Stored"}], "reliable": True,
+            "catalog_source": "neon_postgres", "catalog_shades_considered": 20,
+        }
+        result = await recommend_with_fallback(**ARGS, force_fallback=True)
+        web_search.assert_not_awaited()
+        self.assertEqual(result["strategy"], "plan_2_neon_catalog")
+        self.assertTrue(result["fallback_used"])
+
+    @patch("app.recommendation_service.get_catalog_recommendations")
+    @patch("app.recommendation_service.recommend_products", new_callable=AsyncMock)
     async def test_both_fail_without_inventing_results(self, web_search, catalog):
         web_search.side_effect = RecommendationUnavailableError("web unavailable")
         catalog.side_effect = RuntimeError("database unavailable")

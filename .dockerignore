@@ -1,6 +1,8 @@
 
 # Git metadata
 .git/
+.runtime/
+logs/
 
 # Python virtual environments
 venv/
