@@ -6,7 +6,7 @@
 
 ## 1. 系統分析管線 (Analysis Pipeline)
 
-Lumière 後端採用 FastAPI，建構了一套混合式的 AI 分析管線。該管線結合了本機人臉檢測與放大模型（MediaPipe BlazeFace）、本機深度學習語意分割模型（SegFormer 獨立專家模型、BiSeNet 14/19 分類臉部解析）以及雲端多模態大模型（Claude Vision VLM）。
+Lumière 後端採用 FastAPI，建構了一套混合式的 AI 分析管線。該管線結合了本機人臉檢測與放大模型（MediaPipe BlazeFace）、本機深度學習語意分割模型（SegFormer 獨立專家模型、BiSeNet 14/19 分類臉部解析）以及雲端多模態大模型（OpenAI Vision）。
 
 ### 核心分析管線流程圖 (Pipeline Logic Flow)
 
@@ -22,14 +22,14 @@ graph TD
         
         BiSeNet19 -->|提取 5 大區域遮罩並排除雜訊| Crops[物理裁剪 5 大分區影像]
         
-        Crops --> Claude[vision: Claude Vision 區域膚質評估]
-        SegFormer -->|提供 condition_map 作為 Context| Claude
+        Crops --> OpenAI[vision: OpenAI Vision 區域膚質評估]
+        SegFormer -->|提供 condition_map 作為 Context| OpenAI
     end
     
     BiSeNet19 -->|BiSeNet 14分類與健康遮罩計算| SkinTone[color_analyzer: 估計整體與分區去病灶健康膚色]
     Crops --> SkinTone
     
-    Claude -->|Fallback 保護 / 提取瑕疵等| FinalReport[color_utils: 彙整綜合報告]
+    OpenAI -->|Fallback 保護 / 提取瑕疵等| FinalReport[color_utils: 彙整綜合報告]
     SkinTone --> FinalReport
     
     FinalReport --> Fusion[pipeline: _confirm_melasma_candidate 多模態確認與病灶融合]
@@ -87,7 +87,7 @@ graph TD
   1. 呼叫 19 分類 BiSeNet 模型得到 face parsing map。
   2. 基於 `SKIN_LABEL` = 1 (皮膚) 與 `NOSE_LABEL` = 10 (鼻子) 等語意類別，建立 5 大分區的幾何遮罩：額頭 (`testa`)、左頰 (`bochecha_e`)、右頰 (`bochecha_d`)、鼻子 (`nariz`)、下巴 (`queixo`)。
   3. 對各分區進行 15px 邊緣填充的物理裁剪。
-  4. 在物理裁剪前將亮度最大值 < 30 的非皮膚像素（如頭髮、陰影、背景）清除為純黑 `[0, 0, 0]`，以保證 Claude 獲取的圖像只聚焦在皮膚上。
+  4. 在物理裁剪前將亮度最大值 < 30 的非皮膚像素（如頭髮、陰影、背景）清除為純黑 `[0, 0, 0]`，以保證 OpenAI 獲取的圖像只聚焦在皮膚上。
 * **使用模型**：**BiSeNet 19 分類模型** (ResNet-18 骨幹，`79999_iter.pth`)。
 * **輸入**：步驟一輸出的 `img_array` (zoomed face np.ndarray)。
 * **輸出**：
@@ -112,10 +112,10 @@ graph TD
 * **主要模組**：[vision.py](file:///l:/Lumiere/Back_Lumiere/dev/app/vision.py) (`analyze_region`)
 * **主要功能**：
   1. 將步驟三物理裁剪出的五個分區 JPEG Base64 與步驟二得到的 `condition_map` 作為 Context 送給大模型。
-  2. **防盲從機制**：Claude Vision 必須檢查影像視覺特徵，若視覺上不支持，不得盲從 SegFormer 的 Context。
-  3. Claude 評估該區域的 Fitzpatrick 膚色、副色調、油脂度、表面瑕疵 (acne, mancha, poro, linha, vermelhidão) 以及疑似黑色素瘤 (`melanoma_suspected`) 的信賴分數。
-  4. Prompt 指示 Claude Vision 一次產生多語系對譯的 `notas` 字典。當 Anthropic 呼叫失敗時，回傳預設正常結構。
-* **使用模型**：**Claude Vision VLM** (`claude-opus-4-5`)。
+  2. **防盲從機制**：OpenAI Vision 必須檢查影像視覺特徵，若視覺上不支持，不得盲從 SegFormer 的 Context。
+  3. OpenAI 評估該區域的 Fitzpatrick 膚色、副色調、油脂度、表面瑕疵 (acne, mancha, poro, linha, vermelhidão) 以及疑似黑色素瘤 (`melanoma_suspected`) 的信賴分數。
+  4. Prompt 指示 OpenAI Vision 一次產生多語系對譯的 `notas` 字典。當 OpenAI 呼叫失敗時，回傳預設正常結構。
+* **使用模型**：**OpenAI Vision** (`gpt-5.6-luna`)。
 * **輸入**：分區名稱、裁剪 Base64、`condition_map` 與語系參數。
 * **輸出**：大模型推論的區域評估 JSON。
 
@@ -126,7 +126,7 @@ graph TD
   * [medical_alert.py](file:///l:/Lumiere/Back_Lumiere/dev/app/medical_alert.py)
   * [recommendations.py](file:///l:/Lumiere/Back_Lumiere/dev/app/recommendations.py)
 * **主要功能**：
-  1. **多模態黑斑確診 (Melasma Fusion)**：若 SegFormer 未直接偵測到黑斑但有 candidate 遮罩，且 Claude 在 2 個以上分區發現了 spots 色素沉著瑕疵，則系統融合確診黑斑，更新 `condition_mask` 並在 `condition_overlay` 中繪製橘色斑塊與白色線條。
+  1. **多模態黑斑確診 (Melasma Fusion)**：若 SegFormer 未直接偵測到黑斑但有 candidate 遮罩，且 OpenAI 在 2 個以上分區發現了 spots 色素沉著瑕疵，則系統融合確診黑斑，更新 `condition_mask` 並在 `condition_overlay` 中繪製橘色斑塊與白色線條。
   2. **ITA Fitzpatrick 級數對應**：將整體膚色轉換為 CIELAB 空間，計算 ITA 角度決定 Fitzpatrick 級數 (1~6)，對面部泛紅及光照波動作跨色彩空間校正。
   3. **色差計算**：利用 Luma-Weighted Euclidean Distance $\Delta E$ 計算分區色差。
   4. **粉底液匹配**：根據 ITA Fitzpatrick 與副色調（暖調、中性、冷調），比對內建 44 筆粉底液庫進行 $\Delta E$ 排序，限制每品牌推薦 1 款。
@@ -151,7 +151,7 @@ Lumière 系統目前各個模型檔案的配置與運作狀態盤點如下：
 | **BiSeNet 19 分類臉部解析模型** | `BiSeNet` + `Resnet18` 骨幹 | `training/checkpoints/BiSeNet/79999_iter.pth` | **使用中** (Stage 3) | 19 分類臉部語意分割模型。定位臉部五官與皮膚精細物理界線，做為五大臉部區域實體裁剪與頭髮/背景排除的依據。 |
 | **BiSeNet 14 分類臉部解析模型** | `BiSeNet` + `Resnet18` 骨幹 | `training/checkpoints/BiSeNet/bisenet_best.pth` | **使用中** (Stage 4) | 14 分類臉部語意分割模型。負責標記出皮膚區域 (Skin Label = 1)，用以扣除 SegFormer 病灶遮罩，計算去瑕疵健康代表膚色。 |
 | **ResNet-18 預訓練骨幹** | `Resnet18` (PyTorch) | 載入自 PyTorch 官方 URL；定義於 `training/models/resnet.py` | **使用中** | 作為 BiSeNet-14/19 的特徵提取 ContextPath 骨幹網絡。 |
-| **Claude Vision VLM** | `claude-opus-4-5` | 遠端 Anthropic API 服務 | **使用中** (Stage 5) | 遠端多模態視覺大模型。負責分區影像的細緻膚質、油脂度評估，以及疑似黑色素瘤的預警信賴度預測， Prompt 內含防盲從約束。 |
+| **OpenAI Vision** | `gpt-5.6-luna` | 遠端 OpenAI API 服務 | **使用中** (Stage 5) | 遠端多模態視覺大模型。負責分區影像的細緻膚質、油脂度評估，以及疑似黑色素瘤的預警信賴度預測， Prompt 內含防盲從約束。 |
 
 ### (2) 備用、測試中與歷史模型 (Unused / Backup / Testing)
 

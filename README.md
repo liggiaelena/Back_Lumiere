@@ -1,6 +1,6 @@
 # Skin Analyzer Backend
 
-FastAPI backend for facial skin analysis using MediaPipe for face detection, independent SegFormer models for skin-condition segmentation, BiSeNet for skin-tone extraction, and Claude Vision for per-region skin assessment.
+FastAPI backend for facial skin analysis using MediaPipe for face detection, independent SegFormer models for skin-condition segmentation, BiSeNet for skin-tone extraction, and OpenAI Vision for per-region skin assessment.
 
 ## Stack
 
@@ -9,7 +9,7 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, ind
 - BiSeNet + PyTorch: skin mask extraction and RGB estimation
 - SegFormer + PyTorch: independent melasma, vitiligo, and port-wine-stain segmentation
 - OpenCV + Pillow: image processing and validation
-- Anthropic SDK: Claude Vision skin analysis per facial region
+- OpenAI SDK: OpenAI Vision skin analysis per facial region
 
 ## How It Works
 
@@ -17,7 +17,7 @@ FastAPI backend for facial skin analysis using MediaPipe for face detection, ind
 2. Image is validated and preprocessed.
 3. SegFormer runs independent disease-vs-rest segmentation on the detected face.
 4. BiSeNet parses healthy skin regions and excludes detected condition pixels from tone estimation.
-5. Region crops are sent concurrently to Claude Vision with SegFormer context.
+5. Region crops are sent concurrently to OpenAI Vision with SegFormer context.
 6. Low-confidence melasma evidence (candidate threshold `0.55`) is confirmed only when independent region analysis finds spots in at least two matching facial regions; the standalone deployment threshold remains `0.50`.
 7. Results are aggregated into a final report with condition overlays, color comparison, and foundation recommendations.
 
@@ -40,7 +40,7 @@ Back_Lumiere/
      │   │   ├── __init__.py
      │   │   ├── main.py          # FastAPI app, routes, CORS
      │   │   ├── pipeline.py      # Orchestrates the full analysis flow
-     │   │   ├── vision.py        # Claude Vision / provider integration
+     │   │   ├── vision.py        # OpenAI Vision / provider integration
      │   │   ├── mediapipe_utils.py
      │   │   ├── image_utils.py
      │   │   ├── color_utils.py
@@ -104,7 +104,7 @@ venv\Scripts\python -c "import torch; print(torch.__version__, torch.cuda.is_ava
 Create `.env` in `Back_Lumiere/` (example):
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+OPENAI_API_KEY=your-api-key-here
 ```
 
 ## Run Development API
@@ -151,7 +151,7 @@ Configure an API key before starting the backend:
 
 ```env
 OPENAI_API_KEY=your_api_key
-OPENAI_RECOMMENDATION_MODEL=gpt-5.6-terra
+OPENAI_RECOMMENDATION_MODEL=gpt-5.6-luna
 ```
 
 If the API key, web search, source URLs, or required ingredient evidence is

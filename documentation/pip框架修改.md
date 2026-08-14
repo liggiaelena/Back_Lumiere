@@ -47,11 +47,11 @@ graph TD
     
     subgraph M5_Internal [模組 5 內部: LLM 脈絡提示]
         M5 --> Prompt[注入 Bias Hint 備註: \n 'Left cheek baseline skin tone biased due to 99% Vitiligo']
-        Prompt --> Claude[Claude Vision 綜合評估]
+        Prompt --> OpenAI[OpenAI Vision 綜合評估]
     end
     
     %% 決策與後處理 (整合舊版邏輯)
-    Claude --> FinalReport[color_utils: 彙整綜合診斷報告]
+    OpenAI --> FinalReport[color_utils: 彙整綜合診斷報告]
     FinalReport --> Triage{medical_alert: 醫療警告檢查 \n melanoma_suspected >= 0.85 ?}
     Triage -->|Yes, 觸發警報| Block[強制封鎖美妝推薦 \n 清空推薦清單 + 標記紅字警告]
     Triage -->|No, 正常| RecOK[recommendations: 尋找 44 筆粉底 \n 附加遮瑕/校色技巧說明]
@@ -115,7 +115,7 @@ $$\text{Clean Skin Ratio} = \frac{\text{BiSeNet Skin Pixels} - \text{Disease Mas
 
 * **實作組件**：`vision.py`、`color_utils.py`
 * **運作邏輯**：
-* **模組 5**（Claude Vision 視覺大模型）扮演總診斷醫師，收集並綜合分區影像、病灶 Context 與基準膚色。
+* **模組 5**（OpenAI Vision 視覺大模型）扮演總診斷醫師，收集並綜合分區影像、病灶 Context 與基準膚色。
 * **動態 Prompt 注入（Bias Hint 感知）**：若某分區曾觸發模組 4 的校正機制，模組 5 會在 Prompt 中自動補上備註（例如：*「左臉頰因 99% 白斑已由系統借用右臉膚色校正，請忽略影像中的白色病灶，依基準膚色提供色差推薦」*），防止 VLM 盲從影像外觀而產生決策偏誤。
 * VLM 寫出精準的分區膚質診斷後，交由 `color_utils.py` 彙整綜合報告。
 
@@ -176,7 +176,7 @@ $$\text{Clean Skin Ratio} = \frac{\text{BiSeNet Skin Pixels} - \text{Disease Mas
 
 #### 🧩 模組 5：多模態視覺決策與推薦器 (VLM Decision Engine)
 
-* **職責**：整合分區裁剪影像與病灶統計，若遭遇嚴重病灶覆蓋，自動於 Prompt 中注入 **Bias Hint（病灶偏誤提示）**。將資料送至 Claude Vision VLM，強制大模型避開病灶色彩干擾，做出 Fitzpatrick 膚色級數、副色調、油脂度與 `melanoma_suspected`（疑似黑色素瘤）等高精準度診斷與醫療風險指標。
+* **職責**：整合分區裁剪影像與病灶統計，若遭遇嚴重病灶覆蓋，自動於 Prompt 中注入 **Bias Hint（病灶偏誤提示）**。將資料送至 OpenAI Vision，強制大模型避開病灶色彩干擾，做出 Fitzpatrick 膚色級數、副色調、油脂度與 `melanoma_suspected`（疑似黑色素瘤）等高精準度診斷與醫療風險指標。
 * **輸出介面**：
 * `vlm_report`: 結構化 VLM 分析報告（JSON 格式），含瑕疵度、色澤均勻度、 Fitzpatrick 等級及醫療風險信賴分數。
 

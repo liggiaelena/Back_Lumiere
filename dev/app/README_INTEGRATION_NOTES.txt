@@ -14,9 +14,9 @@ Files in this package:
 2. app/pipeline.py
    - Runs SegFormer first.
    - Sends condition_mask to skin_tone_analyzer.
-   - Sends condition_map to Claude through vision.analyze_region().
+   - Sends condition_map to OpenAI through vision.analyze_region().
    - Adds segformer_condition_map to final report.
-   - Confirms a soft melasma candidate only when Claude independently reports spots
+   - Confirms a soft melasma candidate only when OpenAI independently reports spots
      in at least two matching facial regions; confirmed results are marked
      source=segformer_spot_fusion and suspected=true.
 
@@ -25,5 +25,5 @@ Files in this package:
 
 4. app/vision.py
    - Accepts condition_map=None.
-   - Adds SegFormer condition context into Claude prompt.
+   - Adds SegFormer condition context into the OpenAI prompt.
    - Keeps your existing JSON output format.

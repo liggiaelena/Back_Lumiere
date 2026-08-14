@@ -29,7 +29,7 @@ The following evaluations simulate 50 forward passes per model on a single face 
 **3. Architectural Analysis & Final Selection**
 - **Selected Variant:** **SegFormer-B2**
 - **Justification:**
-  - **The Latency Budget Constraint:** Lumiere's back-end pipeline (`SegFormer -> BiSeNet -> Claude Vision`) runs sequentially. Under a CPU environment, any tier above B1 introduces a massive latency bottleneck (> 400 ms), forcing a compromise on model accuracy.
+  - **The Latency Budget Constraint:** Lumiere's back-end pipeline (`SegFormer -> BiSeNet -> OpenAI Vision`) runs sequentially. Under a CPU environment, any tier above B1 introduces a massive latency bottleneck (> 400 ms), forcing a compromise on model accuracy.
   - **The Power of Hardware Acceleration:** Enabling the RTX 3060 Ti unlocks an average of **12x to 17x speedups**. This paradigm shift makes previously computationally restrictive models highly viable.
   - **The Golden Ratio (Precision vs Speed):** **SegFormer-B2** executes in just **23.77 ms** on the GPU, effortlessly clearing our real-time constraint (sub-50 ms threshold). Compared to B0, B2 offers a 7.3x increase in total parameters (27.35M vs 3.72M), substantially empowering the backbone network to model complex, pixel-level semantic boundaries for facial vitiligo and melasma patches.
   - **Memory Efficiency:** Active GPU VRAM allocation is exceptionally lightweight at 115.80 MB, ensuring full system stability under concurrent web request loads.
@@ -67,7 +67,7 @@ and are selected automatically at runtime.
 **3. Architectural Analysis & Final Selection**
 - **Selected Variant:** **SegFormer-B2**
 - **Justification:**
-  - **The Latency Budget Constraint:** Lumiere's back-end pipeline executes strictly in sequence (`SegFormer Segmentation (US168) -> BiSeNet Tone Extraction (US169) -> Claude Vision Analysis (US170)`). Given that Large Language Model (LLM) reasoning has inherent hardware constraints, the web API enforces a strict **sub-50 ms "golden latency threshold"** for the initial image-processing stages to ensure a seamless 1.5 to 2-second total response time on the frontend.
+  - **The Latency Budget Constraint:** Lumiere's back-end pipeline executes strictly in sequence (`SegFormer Segmentation (US168) -> BiSeNet Tone Extraction (US169) -> OpenAI Vision Analysis (US170)`). Given that Large Language Model (LLM) reasoning has inherent hardware constraints, the web API enforces a strict **sub-50 ms "golden latency threshold"** for the initial image-processing stages to ensure a seamless 1.5 to 2-second total response time on the frontend.
   - **Server-Side GPU Paradigm Shift (Client-Server Architecture):** While a pure CPU execution environment severely bottlenecks performance with B2 taking up to 403.71 ms, our system adopts a dedicated Client-Server architecture. AI computation is entirely isolated on the back-end production server (e.g., powered by an NVIDIA RTX 3060 Ti), unlocking a massive 11x to 17x speedup via the CUDA compute platform. Consequently, end-users can seamlessly enjoy the full power of server-side hardware acceleration from any client device—including lower-end smartphones or standard office laptops—without any local hardware restrictions.
   - **Precision vs. Responsiveness:** **SegFormer-B2** as our optimal architectural choice.  Clocking in at an exceptional **23.77 ms** under GPU execution, it effortlessly clears the 50 ms latency threshold. Furthermore, it ensures robust high-concurrency capabilities, preventing server queuing or traffic congestion even when multiple users (e.g., 2 to 3 users simultaneously) upload photos at peak hours. In terms of capacity, B2 expands the total parameters by 7.3x compared to B0 (27.35M vs. 3.72M). This substantially empowers the backbone network to represent intricate, pixel-level semantic boundaries for facial vitiligo and melasma patches, all while maintaining an incredibly lightweight footprint of just 115.80 MB of VRAM.
 
@@ -107,6 +107,6 @@ and are selected automatically at runtime.
 3. 技術決策與評估結論
 - **最終選定模型：SegFormer-B2**
 - **核心架構決策理由：**
-  - **串聯型 API 的時間預算限制：** Lumiere 後端管線採序列式串聯運行（`SegFormer 疾病遮罩(US168) -> BiSeNet 膚色提取(US169) -> Claude 大模型分析(US170)`）。由於大模型生成文字有其硬體極限，為了確保網頁端 1.5 ~ 2 秒內返回結果的流暢體驗，前端影像處理與疾病辨識步驟被分配了極其嚴苛的「50 毫秒黃金時間預算（sub-50 ms threshold）」。
+  - **串聯型 API 的時間預算限制：** Lumiere 後端管線採序列式串聯運行（`SegFormer 疾病遮罩(US168) -> BiSeNet 膚色提取(US169) -> OpenAI 大模型分析(US170)`）。由於大模型生成文字有其硬體極限，為了確保網頁端 1.5 ~ 2 秒內返回結果的流暢體驗，前端影像處理與疾病辨識步驟被分配了極其嚴苛的「50 毫秒黃金時間預算（sub-50 ms threshold）」。
   - **伺服器端硬體加速（主從式架構）：** 在純 CPU 執行環境下，B2 耗時高達 403.71ms，然而，本系統採用主從式架構（Client-Server），AI 運算完全抽離並鎖定在後端伺服器（EX:NVIDIA RTX 3060 Ti），經 CUDA 平台加速後帶來 11 至 17 倍的效能飛躍。這意味著全世界的使用者不論使用何種低配手機或文書筆電開啟網頁，都能享受伺服器帶來的超高速推論。
   - **精準度與響應速度：** **SegFormer-B2** 是我們最完美的架構解。在 GPU 上它僅需 **23.77 毫秒** 即可完成全臉疾病分割，完美守住 50 毫秒防線，並且在實際網頁上線、面對多用戶同時請求的場景(如果有 2、3 個使用者「同時」上傳照片)時也不會造成伺服器排隊塞車。在參數容量上，B2 是 B0 的 **7.3 倍**（27.35M vs 3.72M），這極大地增強了神經網路對皮膚病變（如白斑症、黃褐斑）複雜像素邊緣的勾勒能力。此外，其VRAM僅需 115.80 MB。

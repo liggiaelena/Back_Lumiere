@@ -118,21 +118,21 @@ def build_final_report(
     regioes = region_results
 
     tons_fitz = [r["tom_fitzpatrick"] for r in regioes.values()]
-    claude_fitzpatrick = max(set(tons_fitz), key=tons_fitz.count)
+    openai_fitzpatrick = max(set(tons_fitz), key=tons_fitz.count)
     tom_geral_hex = _average_hex([r.get("tom_hex", "") for r in regioes.values()])
 
     subtoms = [r["subtom"] for r in regioes.values()]
     subtom_geral = max(set(subtoms), key=subtoms.count)
 
     # Use BiSeNet's precise median hex to determine Fitzpatrick when available;
-    # fall back to Claude's majority vote.
+    # fall back to OpenAI's majority vote.
     bisenet_hex = skin_tone.get("median_hex") if skin_tone else None
     if bisenet_hex:
         tom_geral = hex_to_fitzpatrick(bisenet_hex)
         fitzpatrick_source = "bisenet"
     else:
-        tom_geral = claude_fitzpatrick
-        fitzpatrick_source = "claude"
+        tom_geral = openai_fitzpatrick
+        fitzpatrick_source = "openai"
 
     pares = [
         ("testa",  "bochecha_e"),

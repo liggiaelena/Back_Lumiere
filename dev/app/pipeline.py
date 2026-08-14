@@ -57,7 +57,7 @@ ZONE_TO_REGION = {
 
 
 def _condition_imperfections(condition_map: dict) -> list:
-    """Make SegFormer detections visible even if Claude is unavailable."""
+    """Make SegFormer detections visible even if OpenAI is unavailable."""
     output = []
     for condition, details in condition_map.items():
         if not details.get("detected"):
@@ -300,7 +300,7 @@ async def run_pipeline(
     )
     logger.info("Skin tone and region color analysis completed (median_hex=%s)", skin_tone.get("median_hex"))
 
-    # 3. Claude receives condition_map as context.
+    # 3. OpenAI receives condition_map as context.
     region_tasks = [
         analyze_region(
             region,
@@ -321,7 +321,7 @@ async def run_pipeline(
             logger.error("Region '%s' analysis raised an unexpected exception: %s", region, result)
             result = fallback_response()
         region_results[region] = result
-    logger.info("Claude region analysis completed (%d regions)", len(region_results))
+    logger.info("OpenAI region analysis completed (%d regions)", len(region_results))
 
     report = build_final_report(
         region_results,

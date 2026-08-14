@@ -157,7 +157,7 @@ Common top-level fields:
 - `created_at`: string [ISO 8601] (only present on GET retrieval)
 - `tom_geral_fitzpatrick`: integer (1-6)
 - `tom_geral_hex`: string `#RRGGBB`
-- `fitzpatrick_source`: string `bisenet` or `claude`
+- `fitzpatrick_source`: string `bisenet` or `openai`
 - `subtom_predominante`: string `quente`, `frio`, or `neutro`
 - `regioes`: object with per-region analysis
 - `comparacao_tons`: object with tone comparisons
@@ -215,7 +215,7 @@ Each skin tone entry includes:
 | Result persistence | `Back_Lumiere/dev/app/data_service.py` | `save_analysis()` and `get_analysis()`. |
 | Pipeline execution | `Back_Lumiere/dev/app/pipeline.py` | `run_pipeline()` executes region analysis and BiSeNet skin tone analysis. |
 | Skin tone analysis | `Back_Lumiere/dev/app/skin_tone_analyzer.py` | BiSeNet segmentation and skin-tone calculation. |
-| Region analysis / prompt result | `Back_Lumiere/dev/app/vision.py` | Region-by-region analysis via Claude. |
+| Region analysis / prompt result | `Back_Lumiere/dev/app/vision.py` | Region-by-region analysis via OpenAI. |
 | Recommendation logic | `Back_Lumiere/dev/app/recommendations.py` | Matches shade recommendations by tone and undertone. |
 
 ## 11. Notes
