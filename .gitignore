@@ -54,3 +54,4 @@ logs/
 *.session.sql
 
 secret/
+*.code-workspace
