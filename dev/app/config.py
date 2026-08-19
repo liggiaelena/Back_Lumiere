@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     openai_region_model: str = "gpt-5.6-luna"
     max_image_size_mb: int = 10
     max_image_side: int = 1024
+    max_unfinished_analyses: int = 10
+    analysis_worker_concurrency: int = 2
+    openai_region_concurrency: int = 3
+    recommendation_worker_concurrency: int = 1
+    job_poll_interval_seconds: float = 0.75
+    job_stale_after_seconds: int = 600
+    upload_storage_dir: str = ".runtime/uploads"
+    save_segformer_debug_outputs: bool = False
 
     class Config:
         # Resolve to project root so .env in Back_Lumiere/ is loaded

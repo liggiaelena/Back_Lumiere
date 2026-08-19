@@ -1,5 +1,8 @@
 import logging
+import asyncio
+import secrets
 from datetime import datetime
+from pathlib import Path
 from fastapi import Depends, FastAPI, UploadFile, File, Form, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -12,10 +15,18 @@ from app.pipeline import run_pipeline
 from app.image_utils import load_and_validate
 from app.db import engine
 from app.data_service import (
+    AnalysisQueueFullError,
+    activate_analysis_job,
+    create_analysis_job,
+    create_or_get_recommendation_job,
+    ensure_analysis_job_schema,
     ensure_analysis_ownership,
     get_analysis,
+    get_analysis_status,
+    get_recommendation_job,
     list_user_analyses,
-    save_analysis,
+    mark_analysis_failed,
+    recommendation_response,
 )
 from app.auth import create_access_token, decode_access_token, verify_password
 from app.user_service import (
@@ -28,7 +39,7 @@ from app.gpt_recommendations import (
     DEFAULT_ALLERGEN_OPTIONS,
 )
 from app.fallback_catalog.product_service import ensure_product_tables
-from app.recommendation_service import AllRecommendationStrategiesFailed, recommend_with_fallback
+from app.job_workers import start_workers, stop_workers
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -94,6 +105,12 @@ class AuthResponse(BaseModel):
     user: UserResponse
 
 
+class RecommendationRequest(BaseModel):
+    excluded_allergens: list[str] = Field(default_factory=list)
+    lang: str = Field(default="en", max_length=10)
+    force_fallback: bool = False
+
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -125,10 +142,17 @@ def optional_current_user(
 
 
 @app.on_event("startup")
-def initialize_database():
+async def initialize_database():
     ensure_users_table()
     ensure_analysis_ownership()
+    ensure_analysis_job_schema()
     ensure_product_tables()
+    await start_workers()
+
+
+@app.on_event("shutdown")
+async def shutdown_workers():
+    await stop_workers()
 
 
 @app.post(
@@ -215,22 +239,47 @@ async def analyze(
         raise HTTPException(413, detail=f"Image too large. Maximum {settings.max_image_size_mb}MB.")
 
     try:
-        img_rgb = load_and_validate(contents)
-        result = await run_pipeline(
-            img_rgb,
-            lang=lang,
-            excluded_allergens=_parse_allergens(excluded_allergens),
-        )
-        analysis_id = save_analysis(result, user["id"] if user else None)
-        result["id"] = analysis_id
-        logger.info("Analysis completed successfully (id=%s)", analysis_id)
-        return JSONResponse(content=result)
+        # Reject invalid images before consuming one of the ten queue slots.
+        await asyncio.to_thread(load_and_validate, contents)
     except ValueError as e:
         logger.error("Analysis rejected: %s", e)
         raise HTTPException(422, detail=str(e))
-    except Exception:
-        logger.error("Internal error while analyzing the image", exc_info=True)
-        raise HTTPException(500, detail="Internal error while analyzing the image.")
+
+    upload_dir = Path(settings.upload_storage_dir).resolve()
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[file.content_type]
+    image_path = upload_dir / f"upload_{secrets.token_hex(16)}{suffix}"
+    try:
+        job = await asyncio.to_thread(
+            create_analysis_job,
+            user_id=user["id"] if user else None,
+            image_path=str(image_path),
+            content_type=file.content_type,
+            size_bytes=len(contents),
+            lang=lang,
+            excluded_allergens=_parse_allergens(excluded_allergens),
+            max_unfinished=settings.max_unfinished_analyses,
+        )
+    except AnalysisQueueFullError:
+        raise HTTPException(
+            429,
+            detail={"code": "analysis_queue_full", "message": "Analysis queue is full. Please try again shortly.",
+                    "capacity": settings.max_unfinished_analyses, "retry_after": 20},
+            headers={"Retry-After": "20"},
+        )
+    try:
+        await asyncio.to_thread(image_path.write_bytes, contents)
+    except Exception as exc:
+        await asyncio.to_thread(mark_analysis_failed, job["id"], f"Could not persist uploaded image: {exc}")
+        raise HTTPException(500, detail="Could not save the uploaded image.")
+
+    await asyncio.to_thread(activate_analysis_job, job["id"])
+    queued_status = await asyncio.to_thread(get_analysis_status, job["id"], user["id"] if user else None)
+    if queued_status:
+        job["queue_position"] = queued_status.get("queue_position")
+
+    logger.info("Analysis queued (id=%s position=%s)", job["id"], job["queue_position"])
+    return JSONResponse(status_code=202, content={**job, "poll_after_seconds": 2})
 
 @app.get("/api/analyze")
 def get_history(user: dict = Depends(current_user)):
@@ -253,53 +302,57 @@ def get_analyze(
     return JSONResponse(content=result)
 
 
-@app.get("/api/analyze/{analyze_id}/recommendations")
-@app.get("/api/analyze/{analyze_id}/recommendation")
-async def refresh_recommendations(
+@app.get("/api/analyze/{analyze_id}/status")
+def analyze_status(
     analyze_id: str,
-    excluded_allergens: str = Query(default=""),
-    force_fallback: bool = Query(default=False),
+    user: Optional[dict] = Depends(optional_current_user),
+):
+    result = get_analysis_status(analyze_id, user["id"] if user else None)
+    if result is None:
+        raise HTTPException(404, detail="Analyze result not found.")
+    return result
+
+
+@app.post("/api/analyze/{analyze_id}/recommendations", status_code=202)
+async def request_recommendations(
+    analyze_id: str,
+    request: RecommendationRequest,
     user: Optional[dict] = Depends(optional_current_user),
 ):
     result = get_analysis(analyze_id, user["id"] if user else None)
     if result is None:
         raise HTTPException(404, detail="Analyze result not found.")
-    if result.get("recommendations_blocked"):
-        return {"recommendations": [], "recommendations_reliable": False, "recommendations_blocked": True, "recommendations_status": "blocked"}
+    if result.get("analysis_status") != "ready":
+        raise HTTPException(409, detail="Analysis is not ready yet.")
+    job = await asyncio.to_thread(
+        create_or_get_recommendation_job,
+        analyze_id,
+        request.excluded_allergens,
+        request.lang or result.get("lang", "en"),
+        request.force_fallback,
+    )
+    return recommendation_response(job)
 
-    try:
-        recommendation_result = await recommend_with_fallback(
-            fitzpatrick=result["tom_geral_fitzpatrick"],
-            undertone=result["subtom_predominante"],
-            skin_hex=result.get("tom_geral_hex") or "#c68b6e",
-            condition_map=result.get("segformer_condition_map") or result.get("condition_map"),
-            excluded_allergens=_parse_allergens(excluded_allergens),
-            lang=result.get("lang", "en"),
-            force_fallback=force_fallback,
-        )
-    except AllRecommendationStrategiesFailed as exc:
-        return {
-            "recommendations": [],
-            "recommendations_reliable": False,
-            "recommendations_catalog_source": "openai_web_search",
-            "recommendations_catalog_shades_considered": None,
-            "recommendations_blocked": False,
-            "recommendations_status": "unavailable",
-            "recommendations_error": str(exc),
-        }
-    return {
-        "recommendations": recommendation_result["shades"],
-        "recommendations_reliable": recommendation_result["reliable"],
-        "recommendations_catalog_source": recommendation_result["catalog_source"],
-        "recommendations_catalog_shades_considered": recommendation_result["catalog_shades_considered"],
-        "recommendations_blocked": False,
-        "recommendations_status": "ready",
-        "recommendations_search_summary": recommendation_result["search_summary"],
-        "recommendations_model": recommendation_result["model"],
-        "recommendations_strategy": recommendation_result["strategy"],
-        "recommendations_fallback_used": recommendation_result["fallback_used"],
-        "recommendations_primary_error": recommendation_result["primary_error"],
-    }
+
+@app.get("/api/analyze/{analyze_id}/recommendations")
+@app.get("/api/analyze/{analyze_id}/recommendation")
+def read_recommendations(
+    analyze_id: str,
+    user: Optional[dict] = Depends(optional_current_user),
+):
+    result = get_analysis(analyze_id, user["id"] if user else None)
+    if result is None:
+        raise HTTPException(404, detail="Analyze result not found.")
+    return {key: value for key, value in result.items() if key.startswith("recommendation")}
+
+
+@app.get("/api/recommendation-jobs/{job_id}/status")
+def recommendation_status(job_id: str):
+    job = get_recommendation_job(job_id)
+    if job is None:
+        raise HTTPException(404, detail="Recommendation job not found.")
+    return {"job_id": job_id, "status": job["status"], "error": job.get("last_error"),
+            "poll_after_seconds": 5 if job["status"] in {"queued", "processing"} else None}
 
 
 @app.get("/api/products/allergens")

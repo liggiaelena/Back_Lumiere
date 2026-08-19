@@ -4,6 +4,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./training/checkpoints:/app/training/checkpoints:ro
+      - ./.runtime/uploads:/app/.runtime/uploads
     env_file:
       - .env
     ports:

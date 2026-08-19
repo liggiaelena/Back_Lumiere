@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -56,6 +57,8 @@ MELASMA_CANDIDATE_THRESHOLD = 0.55
 
 _MODEL: Optional[dict] = None
 _INDEPENDENT_MODELS: Optional[List[dict]] = None
+_MODEL_LOAD_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
 
 
 def _find_project_dir() -> Path:
@@ -82,43 +85,35 @@ def _get_independent_models() -> List[dict]:
     if _INDEPENDENT_MODELS is not None:
         return _INDEPENDENT_MODELS
 
-    bundles = []
-    for directory in sorted(INDEPENDENT_MODELS_ROOT.glob("*")):
-        deployment_path = directory / "deployment.json"
-        if not _path_has_hf_model(directory) or not deployment_path.exists():
-            continue
-        deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
-        metrics = deployment.get("metrics", {})
-        meets_quality_gate = (
-            float(metrics.get("iou", 0)) >= 0.40
-            and float(metrics.get("precision", 0)) >= 0.60
-            and float(metrics.get("recall", 0)) >= 0.50
-        )
-        if not meets_quality_gate and not bool(deployment.get("enabled", False)):
-            print(f"[SegFormer] Skipping unqualified model: {directory}")
-            continue
-        model = SegformerForSemanticSegmentation.from_pretrained(directory).to(DEVICE).eval()
-        image_size = int(deployment.get("image_size", getattr(model.config, "image_size", 224)))
-        processor = SegformerImageProcessor(
-            do_resize=True,
-            size={"height": image_size, "width": image_size},
-            do_normalize=True,
-            image_mean=[0.485, 0.456, 0.406],
-            image_std=[0.229, 0.224, 0.225],
-            do_reduce_labels=False,
-        )
-        target = _normalize_label_name(deployment["target"])
-        bundles.append({
-            "model": model,
-            "processor": processor,
-            "target": target,
-            "threshold": float(deployment["threshold"]),
-            "metrics": metrics,
-            "path": str(directory),
-        })
-        print(f"[SegFormer] Active independent model: {target} ({directory})")
-    _INDEPENDENT_MODELS = bundles
-    return bundles
+    with _MODEL_LOAD_LOCK:
+        if _INDEPENDENT_MODELS is not None:
+            return _INDEPENDENT_MODELS
+        bundles = []
+        for directory in sorted(INDEPENDENT_MODELS_ROOT.glob("*")):
+            deployment_path = directory / "deployment.json"
+            if not _path_has_hf_model(directory) or not deployment_path.exists():
+                continue
+            deployment = json.loads(deployment_path.read_text(encoding="utf-8"))
+            metrics = deployment.get("metrics", {})
+            meets_quality_gate = (
+                float(metrics.get("iou", 0)) >= 0.40
+                and float(metrics.get("precision", 0)) >= 0.60
+                and float(metrics.get("recall", 0)) >= 0.50
+            )
+            if not meets_quality_gate and not bool(deployment.get("enabled", False)):
+                print(f"[SegFormer] Skipping unqualified model: {directory}")
+                continue
+            model = SegformerForSemanticSegmentation.from_pretrained(directory).to(DEVICE).eval()
+            image_size = int(deployment.get("image_size", getattr(model.config, "image_size", 224)))
+            processor = SegformerImageProcessor(do_resize=True, size={"height": image_size, "width": image_size},
+                do_normalize=True, image_mean=[0.485, 0.456, 0.406], image_std=[0.229, 0.224, 0.225],
+                do_reduce_labels=False)
+            target = _normalize_label_name(deployment["target"])
+            bundles.append({"model": model, "processor": processor, "target": target,
+                "threshold": float(deployment["threshold"]), "metrics": metrics, "path": str(directory)})
+            print(f"[SegFormer] Active independent model: {target} ({directory})")
+        _INDEPENDENT_MODELS = bundles
+        return bundles
 
 
 def _predict_independent(img_array: np.ndarray, bundle: dict) -> np.ndarray:
@@ -332,7 +327,7 @@ def _load_local_model(model_path: Path) -> tuple:
     return model, processor, id2label
 
 
-def _get_model() -> dict:
+def _get_model_unlocked() -> dict:
     global _MODEL
 
     if _MODEL is not None:
@@ -379,6 +374,13 @@ def _get_model() -> dict:
         "id2label": id2label,
     }
     return _MODEL
+
+
+def _get_model() -> dict:
+    if _MODEL is not None:
+        return _MODEL
+    with _MODEL_LOAD_LOCK:
+        return _get_model_unlocked()
 
 
 def _clean_binary_mask(binary: np.ndarray) -> np.ndarray:
@@ -464,6 +466,11 @@ def _estimate_zones(binary_mask: np.ndarray) -> List[str]:
 
 
 def get_condition_outputs(img_array: np.ndarray) -> dict:
+    with _INFERENCE_LOCK:
+        return _get_condition_outputs_locked(img_array)
+
+
+def _get_condition_outputs_locked(img_array: np.ndarray) -> dict:
     img_array = np.asarray(img_array)
     h, w = img_array.shape[:2]
     unified_mask = np.zeros((h, w), dtype=np.uint8)

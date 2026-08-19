@@ -240,7 +240,8 @@ async def _run_segformer_first(loop, img_array: np.ndarray) -> dict:
 
 
 async def run_pipeline(
-    img_rgb, lang: str = "en", excluded_allergens: list[str] | None = None
+    img_rgb, lang: str = "en", excluded_allergens: list[str] | None = None,
+    stage_callback=None,
 ) -> dict:
     logger.info("Pipeline started (lang=%s)", lang)
     img_data = preprocess(img_rgb)
@@ -274,11 +275,11 @@ async def run_pipeline(
         name for name, details in condition_map.items() if details.get("detected")
     ]
     logger.info("SegFormer condition segmentation completed (detected=%s)", detected_conditions)
-    segformer_debug = _debug_save_segformer_outputs(
-    img_array,
-    condition_mask,
-    condition_map,
-)
+    from app.config import settings
+    segformer_debug = (
+        _debug_save_segformer_outputs(img_array, condition_mask, condition_map)
+        if settings.save_segformer_debug_outputs else None
+    )
 
     # 3. BiSeNet parses the face; all five masks share SegFormer's coordinates.
     parsing_map = await loop.run_in_executor(
@@ -299,6 +300,9 @@ async def run_pipeline(
         region_masks,
     )
     logger.info("Skin tone and region color analysis completed (median_hex=%s)", skin_tone.get("median_hex"))
+
+    if stage_callback is not None:
+        stage_callback("analyzing_regions")
 
     # 3. OpenAI receives condition_map as context.
     region_tasks = [
@@ -342,7 +346,8 @@ async def run_pipeline(
     # Do not add condition_mask because NumPy arrays are not JSON serializable.
     report["segformer_condition_map"] = condition_map
     report["condition_overlay"] = _build_condition_overlay(img_array, condition_mask)
-    report["segformer_debug"] = segformer_debug
+    if segformer_debug is not None:
+        report["segformer_debug"] = segformer_debug
     report["face_detection"] = face_detection
     report["face_image"] = face_image
     report["lang"] = lang

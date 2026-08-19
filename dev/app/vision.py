@@ -6,6 +6,14 @@ from typing import Optional, Dict, Any
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+_region_semaphore = None
+
+
+def _get_region_semaphore():
+    global _region_semaphore
+    if _region_semaphore is None:
+        _region_semaphore = asyncio.Semaphore(settings.openai_region_concurrency)
+    return _region_semaphore
 
 _VALID_SUBTOM = {"quente", "frio", "neutro"}
 _VALID_OLEOSIDADE = {"seco", "normal", "misto", "oleoso"}
@@ -241,9 +249,10 @@ async def analyze_region(
             return fallback_response()
 
         try:
-            result = await loop.run_in_executor(
-                None,
-                lambda: client.responses.create(
+            async with _get_region_semaphore():
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: client.responses.create(
                     model=settings.openai_region_model,
                     input=[{
                         "role": "user",
@@ -264,8 +273,8 @@ async def analyze_region(
                             "schema": REGION_RESPONSE_SCHEMA,
                         }
                     },
-                ),
-            )
+                    ),
+                )
         except Exception as exc:
             logger.error("OpenAI region analysis failed, using fallback response: %s", exc)
             return fallback_response()
