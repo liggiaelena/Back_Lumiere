@@ -23,6 +23,7 @@ def read_secret(name: str) -> Optional[str]:
 class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     openai_recommendation_model: str = "gpt-5.6-luna"
+    openai_recommendation_latency_optimized: bool = False
     openai_region_model: str = "gpt-5.6-luna"
     max_image_size_mb: int = 10
     max_image_side: int = 1024

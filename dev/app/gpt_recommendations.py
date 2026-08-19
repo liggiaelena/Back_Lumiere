@@ -115,6 +115,7 @@ async def recommend_products(
     excluded_allergens: list[str] | None = None,
     lang: str = "en",
     client=None,
+    latency_optimized: bool = False,
 ) -> dict:
     """Search the live web and return structured, source-backed products."""
     if client is None:
@@ -153,18 +154,27 @@ not medical advice.
 """.strip()
 
     try:
+        text_config = {
+            "format": {
+                "type": "json_schema",
+                "name": "cosmetic_recommendations",
+                "strict": True,
+                "schema": _RESPONSE_SCHEMA,
+            }
+        }
+        request_options = {}
+        if latency_optimized:
+            # Preserve the model, web-search scope, product count, and schema.
+            # Only reduce hidden reasoning and visible prose verbosity.
+            request_options["reasoning"] = {"effort": "none"}
+            text_config["verbosity"] = "low"
+
         response = await client.responses.create(
             model=settings.openai_recommendation_model,
             tools=[{"type": "web_search"}],
             input=prompt,
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "cosmetic_recommendations",
-                    "strict": True,
-                    "schema": _RESPONSE_SCHEMA,
-                }
-            },
+            text=text_config,
+            **request_options,
         )
         payload = json.loads(response.output_text)
     except Exception as exc:

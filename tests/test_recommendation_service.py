@@ -7,6 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "dev"))
 
 from app.gpt_recommendations import RecommendationUnavailableError
+from app.config import settings
 from app.recommendation_service import AllRecommendationStrategiesFailed, recommend_with_fallback
 
 
@@ -28,6 +29,17 @@ class RecommendationStrategyTests(unittest.IsolatedAsyncioTestCase):
         result = await recommend_with_fallback(**ARGS)
         self.assertEqual(result["strategy"], "plan_1_openai_web_search")
         self.assertFalse(result["fallback_used"])
+
+    @patch("app.recommendation_service.recommend_products", new_callable=AsyncMock)
+    async def test_latency_setting_is_forwarded(self, web_search):
+        web_search.return_value = {
+            "shades": [{"brand": "Live"}], "reliable": True,
+            "catalog_source": "openai_web_search", "catalog_shades_considered": None,
+            "search_summary": "live", "model": "test-model",
+        }
+        with patch.object(settings, "openai_recommendation_latency_optimized", True):
+            await recommend_with_fallback(**ARGS)
+        self.assertTrue(web_search.await_args.kwargs["latency_optimized"])
 
     @patch("app.recommendation_service.get_catalog_recommendations")
     @patch("app.recommendation_service.recommend_products", new_callable=AsyncMock)

@@ -152,6 +152,7 @@ Configure an API key before starting the backend:
 ```env
 OPENAI_API_KEY=your_api_key
 OPENAI_RECOMMENDATION_MODEL=gpt-5.6-luna
+OPENAI_RECOMMENDATION_LATENCY_OPTIMIZED=true
 ```
 
 If the API key, web search, source URLs, or required ingredient evidence is

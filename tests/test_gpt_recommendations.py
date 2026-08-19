@@ -6,6 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "dev"))
 
+from app.config import settings
 from app.gpt_recommendations import RecommendationUnavailableError, recommend_products
 
 
@@ -48,6 +49,22 @@ class GptRecommendationsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.responses.kwargs["tools"], [{"type": "web_search"}])
         self.assertEqual(result["catalog_source"], "openai_web_search")
         self.assertEqual(result["shades"][0]["where_to_buy"], _product()["product_url"])
+
+    async def test_latency_optimization_preserves_request_scope(self):
+        client = _Client({"recommendations": [_product()], "search_summary": "Verified live."})
+        await recommend_products(
+            skin_hex="#C68B6E", fitzpatrick=4, undertone="neutral",
+            client=client, latency_optimized=True,
+        )
+        request = client.responses.kwargs
+        self.assertEqual(request["model"], settings.openai_recommendation_model)
+        self.assertEqual(request["tools"], [{"type": "web_search"}])
+        self.assertEqual(request["reasoning"], {"effort": "none"})
+        self.assertEqual(request["text"]["verbosity"], "low")
+        self.assertEqual(
+            request["text"]["format"]["schema"]["properties"]["recommendations"]["minItems"],
+            3,
+        )
 
     async def test_excluded_ingredient_is_removed_fail_closed(self):
         client = _Client({"recommendations": [_product(ingredients=["water", "fragrance"])], "search_summary": "Checked."})

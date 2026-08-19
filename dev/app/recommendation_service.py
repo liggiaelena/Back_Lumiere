@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from app.config import settings
 from app.fallback_catalog.recommendations import get_recommendations as get_catalog_recommendations
 from app.gpt_recommendations import RecommendationUnavailableError, recommend_products
 
@@ -35,6 +36,7 @@ async def recommend_with_fallback(
                 condition_map=condition_map,
                 excluded_allergens=excluded_allergens,
                 lang=lang,
+                latency_optimized=settings.openai_recommendation_latency_optimized,
             )
             return {
                 **result,
