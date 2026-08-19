@@ -1,0 +1,54 @@
+{
+  "checkpoint": "training\\checkpoints\\SegFormer\\deprecated\\segformer_melasma_model_2\\best",
+  "target_label": "black_spot",
+  "class_id": 2,
+  "overall": {
+    "tp": 389183,
+    "fp": 936032,
+    "fn": 224073,
+    "pixels": 6773760,
+    "predicted": 1325215,
+    "iou": 0.25120119693691556,
+    "precision": 0.2936753658840264,
+    "recall": 0.6346175169912728,
+    "predicted_area_percent": 19.563949711829174
+  },
+  "datasets": {
+    "melasma_like_hyperpigmentation": {
+      "tp": 389183,
+      "fp": 844151,
+      "fn": 224073,
+      "pixels": 5117952,
+      "predicted": 1233334,
+      "images": 102,
+      "iou": 0.2670379653727476,
+      "precision": 0.3155536132142631,
+      "recall": 0.6346175169912728,
+      "predicted_area_percent": 24.098193965086033
+    },
+    "vitiligo": {
+      "tp": 0,
+      "fp": 29383,
+      "fn": 0,
+      "pixels": 752640,
+      "predicted": 29383,
+      "images": 15,
+      "iou": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "predicted_area_percent": 3.9039912840136055
+    },
+    "port_wine_stain": {
+      "tp": 0,
+      "fp": 62498,
+      "fn": 0,
+      "pixels": 903168,
+      "predicted": 62498,
+      "images": 18,
+      "iou": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "predicted_area_percent": 6.919864299886622
+    }
+  }
+}

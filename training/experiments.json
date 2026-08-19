@@ -1,0 +1,240 @@
+[
+  {
+    "run_name": "baseline",
+    "created_at": "prefilled",
+    "hyperparameters": {
+      "learning_rate": 5e-05,
+      "epochs": 100,
+      "batch_size": 4,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.5597608264898718,
+        "test_iou": 0.4826439215677261
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.5841015669166646,
+        "test_iou": 0.5921451932097909
+      },
+      "vitiligo": {
+        "best_val_iou": 0.49330217319333486,
+        "test_iou": null
+      }
+    }
+  },
+  {
+    "run_name": "smoke_local",
+    "created_at": "2026-06-17T04:40:56.261164+00:00",
+    "hyperparameters": {
+      "learning_rate": 0.0001,
+      "epochs": 1,
+      "batch_size": 1,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.6336560454540464,
+        "test_iou": 0.5292413324336032
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.37647497594215407,
+        "test_iou": 0.36001824202392524
+      },
+      "vitiligo": {
+        "best_val_iou": 0.0,
+        "test_iou": 0.0
+      }
+    }
+  },
+  {
+    "run_name": "smoke_local",
+    "created_at": "2026-06-17T04:50:47.309028+00:00",
+    "hyperparameters": {
+      "learning_rate": 0.0001,
+      "epochs": 1,
+      "batch_size": 1,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.458843307450872,
+        "test_iou": 0.4867524409440461
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.4049396848434505,
+        "test_iou": 0.385505320567542
+      },
+      "vitiligo": {
+        "best_val_iou": 0.0,
+        "test_iou": 0.0
+      }
+    }
+  },
+  {
+    "run_name": "smoke_local",
+    "created_at": "2026-06-17T05:00:34.813371+00:00",
+    "hyperparameters": {
+      "learning_rate": 0.0001,
+      "epochs": 1,
+      "batch_size": 1,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.5731273943389595,
+        "test_iou": 0.6293738062786874
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.3671872235415247,
+        "test_iou": 0.3917272367723226
+      },
+      "vitiligo": {
+        "best_val_iou": 0.0,
+        "test_iou": 0.0
+      }
+    }
+  },
+  {
+    "run_name": "smoke_colab",
+    "created_at": "2026-06-18T00:10:53.873323+00:00",
+    "hyperparameters": {
+      "learning_rate": 0.0001,
+      "epochs": 1,
+      "batch_size": 8,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.3143586057653312,
+        "test_iou": 0.31477961886059647
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.4420540546169036,
+        "test_iou": 0.3101321192724076
+      },
+      "vitiligo": {
+        "best_val_iou": 0.0,
+        "test_iou": 0.0
+      }
+    }
+  },
+  {
+    "run_name": "experiment_lr1e4",
+    "created_at": "2026-06-18T02:01:10.249426+00:00",
+    "hyperparameters": {
+      "learning_rate": 0.0001,
+      "epochs": 50,
+      "batch_size": 8,
+      "weight_decay": 0.01
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.5498212049864922,
+        "test_iou": 0.6366601441519069
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.5064671322152833,
+        "test_iou": 0.5877798607308276
+      },
+      "vitiligo": {
+        "best_val_iou": 0.09037545119033744,
+        "test_iou": 0.06910402044789395
+      }
+    }
+  },
+  {
+    "run_name": "smoke_mixed_device",
+    "created_at": "2026-06-18T23:17:35.061066+00:00",
+    "hyperparameters": {
+      "learning_rate": 5e-05,
+      "epochs": 1,
+      "batch_size": 4,
+      "weight_decay": 0.01
+    },
+    "stage_hyperparameters": {
+      "melasma": {
+        "learning_rate": 5e-05,
+        "epochs": 1,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      },
+      "port_wine_stain": {
+        "learning_rate": 5e-05,
+        "epochs": 1,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      },
+      "vitiligo": {
+        "learning_rate": 5e-05,
+        "epochs": 1,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      }
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.34563701983358236,
+        "test_iou": 0.3567123865053443
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.20107085698485622,
+        "test_iou": 0.19372282244987296
+      },
+      "vitiligo": {
+        "best_val_iou": 0.0,
+        "test_iou": 0.0
+      }
+    }
+  },
+  {
+    "run_name": "experiment_cpu_512_lr5e5_batch4",
+    "created_at": "2026-06-19T21:26:16.017232+00:00",
+    "hyperparameters": {
+      "learning_rate": 5e-05,
+      "epochs": 50,
+      "batch_size": 4,
+      "weight_decay": 0.01
+    },
+    "stage_hyperparameters": {
+      "melasma": {
+        "learning_rate": 5e-05,
+        "epochs": 50,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      },
+      "port_wine_stain": {
+        "learning_rate": 5e-05,
+        "epochs": 50,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      },
+      "vitiligo": {
+        "learning_rate": 5e-05,
+        "epochs": 50,
+        "batch_size": 4,
+        "weight_decay": 0.01,
+        "device": "auto"
+      }
+    },
+    "results": {
+      "melasma": {
+        "best_val_iou": 0.5867512181912532,
+        "test_iou": 0.5926692608163348
+      },
+      "port_wine_stain": {
+        "best_val_iou": 0.5393990679261131,
+        "test_iou": 0.5627209242636226
+      },
+      "vitiligo": {
+        "best_val_iou": 0.06251714208266408,
+        "test_iou": 0.047426954630218045
+      }
+    }
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "target": "vitiligo",
+  "enabled": true,
+  "threshold": 0.5,
+  "image_size": 384,
+  "metrics": {
+    "tp": 96000,
+    "fp": 107741,
+    "fn": 60339,
+    "iou": 0.36352620418055137,
+    "precision": 0.47118645731590597,
+    "recall": 0.6140502369850134
+  },
+  "test_metrics": {
+    "threshold": 0.45,
+    "iou": 0.20109072087097637,
+    "precision": 0.34455869751499574,
+    "recall": 0.32566747253370265
+  }
+}

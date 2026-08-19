@@ -1,0 +1,54 @@
+# Lumiere SegFormer-B2 Vitiligo Finetune
+
+## Task
+Task 7 — Finetune SegFormer for vitiligo detection
+
+## Model
+- Architecture: SegFormer-B2 semantic segmentation
+- Starting checkpoint: `training/checkpoints/SegFormer/segformer_b2_4class_port_wine_stain_finetune/best`
+- Finetuned checkpoint: `vitiligo_finetune/best/`
+- Final epoch checkpoint: `vitiligo_finetune/last/`
+
+## Classes
+- 0 = background
+- 1 = vitiligo
+- 2 = melasma_like_hyperpigmentation
+- 3 = port_wine_stain
+
+## Dataset
+- Source: Label Studio brush annotation export
+- Total paired samples: 100
+- Split:
+  - Train: 70
+  - Validation: 15
+  - Test: 15
+- Processed mask values:
+  - 0 = background
+  - 1 = vitiligo
+
+## Training
+- Environment: Google Colab GPU (T4)
+- Image size: 512
+- Batch size: 4
+- Epochs: 50
+- Learning rate: 5e-5 (CosineAnnealingLR, eta_min=1e-6)
+- Optimizer: AdamW
+- Loss: CrossEntropyLoss with class weights [0.3, 3.0, 1.0, 1.0]
+- Augmentation: RandomHorizontalFlip + ColorJitter (train split only)
+- Best validation checkpoint selection: highest validation vitiligo IoU
+
+## Results
+- Best validation vitiligo IoU: 0.4933 at epoch 22
+- Final epoch validation vitiligo IoU: see `vitiligo_finetune/training_history.json`
+
+## Training Notes
+This model was finetuned for pixel-level vitiligo detection on a dataset of 100 annotated face images (70 train / 15 val / 15 test). The best validation IoU achieved was **0.4933**, which is comparable to the melasma model (0.4826) trained by the team under the same conditions.
+
+The dataset quality is good — images were carefully annotated at pixel level using Label Studio with RLE brush masks. However, 100 images is too few for robust generalisation. The model shows high IoU variance between epochs (oscillating between 0.10 and 0.49) which is a direct symptom of the small dataset size.
+
+**This model will need to be retrained** once a larger dataset (ideally 500+ annotated images, as originally scoped in Task 3) is available. The current checkpoint is sufficient for the academic prototype but should not be used in a production environment without retraining on more data.
+
+## Important Limitation
+This is an academic prototype model only. It is not intended for medical diagnosis or clinical decision-making.
+
+Because this finetuning run only used vitiligo annotations, classes 2 (melasma) and 3 (port_wine_stain) behaviour is inherited from the starting checkpoint and was not retrained. For a production-ready four-class model, all three conditions should be trained together to reduce catastrophic forgetting.

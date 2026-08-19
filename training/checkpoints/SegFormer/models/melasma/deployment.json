@@ -1,0 +1,19 @@
+{
+  "target": "melasma",
+  "threshold": 0.75,
+  "image_size": 512,
+  "metrics": {
+    "tp": 2884465,
+    "fp": 708202,
+    "fn": 903646,
+    "positive_images": 101,
+    "detected_positive_images": 97,
+    "negative_images": 238,
+    "false_positive_images": 3,
+    "iou": 0.6415178391717836,
+    "precision": 0.8028756909560502,
+    "recall": 0.7614520799416913,
+    "image_recall": 0.9603960396039604,
+    "image_false_positive_rate": 0.012605042016806723
+  }
+}

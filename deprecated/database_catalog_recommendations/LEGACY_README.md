@@ -1,0 +1,229 @@
+# Skin Analyzer Backend
+
+FastAPI backend for facial skin analysis using MediaPipe for face detection, independent SegFormer models for skin-condition segmentation, BiSeNet for skin-tone extraction, and Claude Vision for per-region skin assessment.
+
+## Stack
+
+- FastAPI + Uvicorn: REST API server
+- MediaPipe Tasks API: facial landmark detection and region segmentation
+- BiSeNet + PyTorch: skin mask extraction and RGB estimation
+- SegFormer + PyTorch: independent melasma, vitiligo, and port-wine-stain segmentation
+- OpenCV + Pillow: image processing and validation
+- Anthropic SDK: Claude Vision skin analysis per facial region
+
+## How It Works
+
+1. Image is uploaded via `POST /api/analyze`.
+2. Image is validated and preprocessed.
+3. SegFormer runs independent disease-vs-rest segmentation on the detected face.
+4. BiSeNet parses healthy skin regions and excludes detected condition pixels from tone estimation.
+5. Region crops are sent concurrently to Claude Vision with SegFormer context.
+6. Low-confidence melasma evidence (candidate threshold `0.55`) is confirmed only when independent region analysis finds spots in at least two matching facial regions; the standalone deployment threshold remains `0.50`.
+7. Results are aggregated into a final report with condition overlays, color comparison, and foundation recommendations.
+
+## Project Structure
+
+
+```
+Back_Lumiere/
+     ├── README.md
+     ├── requirements.txt         # Project dependencies
+     ├── .env                     # API keys and environment variables (do not commit)
+     ├── data-collection/
+     │   ├── outputs/             # Local intermediate images and JSON outputs (git-ignored)
+     │   └── scripts/             # Face parsing, skin extraction, RGB estimation
+     │       ├── face_parsing_bisenet.py
+     │       ├── skin_region_extraction.py
+     │       └── rgb_estimation.py
+     ├── dev/
+     │   ├── app/
+     │   │   ├── __init__.py
+     │   │   ├── main.py          # FastAPI app, routes, CORS
+     │   │   ├── pipeline.py      # Orchestrates the full analysis flow
+     │   │   ├── vision.py        # Claude Vision / provider integration
+     │   │   ├── mediapipe_utils.py
+     │   │   ├── image_utils.py
+     │   │   ├── color_utils.py
+     │   │   ├── recommendations.py
+     │   │   ├── skin_tone_analyzer.py
+     │   │   └── config.py
+     │   └── run.py               # Development server entrypoint
+     ├── documentation/
+     │   ├── US160_SegFormer.md               #
+      Technical evaluation and hardware benchmark report
+     │   ├── US186_API Description.md         # API contract and analysis output structure
+     │   └── MLOps_UseCase_API_Design.xlsx    # API design use case workbook
+     └── training/
+         ├── checkpoints/         # Model weights
+         │   ├── bisenet_best.pth
+         │   ├── 79999_iter.pth
+         │   └── SegFormer/       # SegFormer finetuned checkpoints
+         │       ├── segformer_b2_4class_port_wine_stain_finetune/
+         │       ├── segformer_b2_4class_vitiligo_finetune/
+         │       ├── segformer_b2_melasma_colab_export/
+         │       └── segformer_melasma_colab_export/
+         ├── SegFormer/
+         │   ├── benchmark.py     # Performance benchmarking script for SegFormer variants
+         │   ├── port_wine_stain/ # Training & evaluation for Port Wine Stain
+         │   │   ├── colab_port_wine_stain_training.ipynb
+         │   │   ├── train_port_wine_stain.py
+         │   │   └── evaluate_port_wine_stain.py
+         │   └── vitiligo/        # Training & evaluation for Vitiligo
+         │       ├── colab_vitiligo_training.ipynb
+         │       ├── train_vitiligo.py
+         │       └── evaluate_vitiligo.py
+         └── models/              # Model architecture definitions
+             ├── __init__.py
+             ├── model.py
+             ├── resnet.py
+             └── blaze_face_short_range.tflite
+
+```
+
+## Setup
+
+```bash
+cd Back_Lumiere
+python -m venv venv
+venv\Scripts\Activate.ps1   # (PowerShell)
+# or: venv\Scripts\activate  # (Git Bash / CMD)
+pip install -r requirements.txt
+```
+
+The requirements are hardware-neutral and do not pin a CUDA wheel. A normal `pip`
+installation works on CPU-only machines. NVIDIA hosts may install the matching PyTorch
+CUDA wheel from the official PyTorch package index; the application automatically uses
+CUDA when `torch.cuda.is_available()` is true.
+
+Verify the active PyTorch device:
+
+```powershell
+venv\Scripts\python -c "import torch; print(torch.__version__, torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+```
+
+Create `.env` in `Back_Lumiere/` (example):
+
+```env
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+## Run Development API
+
+Recommended (from project root so `.env` is loaded):
+
+```powershell
+cd L:\Lumiere\Back_Lumiere
+venv\Scripts\python dev\run.py
+```
+
+Alternative (run from `dev/`):
+
+```powershell
+cd dev
+..\venv\Scripts\python run.py
+```
+
+Server starts at `http://localhost:8001`.
+
+## Data Collection Scripts
+
+Place `face_crop.jpg` in `data-collection/outputs/`, then run:
+
+```bash
+python data-collection/scripts/face_parsing_bisenet.py
+python data-collection/scripts/skin_region_extraction.py
+python data-collection/scripts/rgb_estimation.py
+```
+
+Generated files are written to `data-collection/outputs/`.
+
+## API
+
+### Live makeup product catalogue
+
+Foundation recommendations are read from PostgreSQL rather than from the old
+in-code sample list. Synchronize official product pages before serving traffic:
+
+```powershell
+python dev/product_sync.py --sources dev/product_sources.json
+```
+
+Run this command on a schedule (for example every six hours) to refresh price,
+availability, ingredients, detected allergens, and the original product URL.
+The bundled source file now tracks 16 foundation lines across 13 source domains,
+including Fenty Beauty, MAC, Maybelline, Estée Lauder, Dior, Haus Labs,
+Clinique, L'Oréal Paris, Charlotte Tilbury, NARS, Sephora, Ulta, HUDA BEAUTY,
+Urban Decay, and MAKE UP FOR EVER. The synchronizer supports JSON-LD, embedded
+Shopify/Next.js JSON, JavaScript swatch objects, HTML swatches, and colour
+estimation from official swatch images. Estimated colours store
+`shade_hex_source=official_swatch_image_estimate` and a confidence score; only
+scores of at least `0.75` are eligible for recommendations.
+
+Some retailers (notably Sephora and several Estée-owned sites) return HTTP 403
+to server-side catalogue clients. Those entries remain visible in the source
+manifest for an approved affiliate/API adapter, but a failed fetch is never
+written over the last successful database record. The command exits non-zero
+when any configured source fails so production monitoring can report it.
+
+Each source may define `fallback_urls`. The synchronizer tries the brand page
+first and then authorized retailer listings for the exact product. The actual
+host used is persisted as `data_source`, while `product_url` points to the page
+whose live price and ingredients were imported. Current fallbacks use Ulta for
+MAC, Estée Lauder, Dior, Clinique, Charlotte Tilbury, NARS, and Lancôme.
+Retailer HTML is not a stable API, so a failed source must leave the previously
+fetched database row intact and should be monitored in production.
+
+`POST /api/analyze` accepts an optional multipart field named
+`excluded_allergens`. It may be a JSON array (`["fragrance","lanolin"]`) or a
+comma-separated string. After an analysis has been saved, the selection can be
+changed without re-running the models:
+
+```text
+GET /api/analyze/{analysis_id}/recommendations?excluded_allergens=fragrance,lanolin
+GET /api/products/allergens
+```
+
+Each recommendation contains `product_url`; the frontend should use that value
+as the product-card link. Price responses also contain `currency` and
+`price_fetched_at` so the UI can disclose freshness.
+
+### `GET /`
+
+Health check.
+
+```json
+{ "status": "ok", "service": "skin-analyzer" }
+```
+
+### `POST /api/analyze`
+
+Analyzes a facial photo.
+
+Request: `multipart/form-data` with a `file` field. Supported formats are JPG, PNG, and WebP. Maximum size is 10 MB.
+
+## Image Requirements
+
+- Format: JPG, PNG, or WebP
+- Maximum size: 10 MB
+- Face should be centered and well-lit
+
+## Python Version
+
+Requires Python 3.11 or newer.
+
+## SegFormer Models and Training
+
+Promoted independent checkpoints are stored under:
+
+```text
+training/checkpoints/SegFormer/models/
+```
+
+The melasma model uses a 512 x 512 input and a deployment threshold of `0.50`.
+Training data is expected outside this repository under `../Model_Segformer` with
+prepared `images/`, `masks/`, and `splits/` directories. The reusable trainer is
+`training/SegFormer/train_independent.py`; it supports cross-disease negative samples,
+lesion crops, low-contrast augmentation, pixel metrics, image-level recall, and early
+stopping. Detailed experiment results are recorded in
+`training/TRAINING_HISTORY.md`.
+

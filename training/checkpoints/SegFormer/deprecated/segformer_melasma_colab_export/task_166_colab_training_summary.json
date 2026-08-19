@@ -1,0 +1,155 @@
+{
+  "project": "Lumiere",
+  "task": "166 - Finetune SegFormer for melasma detection",
+  "model": "SegFormer-B0",
+  "training_environment": "Google Colab GPU",
+  "device": "cuda",
+  "gpu_name": "Tesla T4",
+  "image_size": 224,
+  "batch_size": 4,
+  "epochs": 8,
+  "learning_rate": 5e-05,
+  "class_weights": {
+    "background": 1.0,
+    "melasma_like_hyperpigmentation": 2.0
+  },
+  "best_validation_iou": 0.6399329094738623,
+  "best_threshold": 0.8,
+  "test_iou_at_best_test_threshold": 0.5598402101167095,
+  "best_test_threshold": 0.6,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.647122147348192,
+      "val_loss": 0.5804516420914576,
+      "best_threshold": 0.6,
+      "best_val_iou": 0.5408271085293904,
+      "threshold_scores": {
+        "0.3": 0.23987276561140453,
+        "0.4": 0.365934676855858,
+        "0.5": 0.44090943863816323,
+        "0.6": 0.5408271085293904,
+        "0.7": 0.5290968369090304,
+        "0.8": 0.5294117647058824
+      }
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.5596446070406172,
+      "val_loss": 0.5162432892964437,
+      "best_threshold": 0.7,
+      "best_val_iou": 0.5502452571087882,
+      "threshold_scores": {
+        "0.3": 0.3262102402421171,
+        "0.4": 0.48765300898697683,
+        "0.5": 0.5182993984600957,
+        "0.6": 0.530714628321055,
+        "0.7": 0.5502452571087882,
+        "0.8": 0.549818447731707
+      }
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.5074929518832101,
+      "val_loss": 0.4773720560165552,
+      "best_threshold": 0.8,
+      "best_val_iou": 0.5790891823811016,
+      "threshold_scores": {
+        "0.3": 0.3336042430892343,
+        "0.4": 0.393695579172004,
+        "0.5": 0.4398391730207117,
+        "0.6": 0.5128533835305934,
+        "0.7": 0.5202805868385568,
+        "0.8": 0.5790891823811016
+      }
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.4726488696204291,
+      "val_loss": 0.4910890173453551,
+      "best_threshold": 0.6,
+      "best_val_iou": 0.5992548376776321,
+      "threshold_scores": {
+        "0.3": 0.3645311911407718,
+        "0.4": 0.4928174330007028,
+        "0.5": 0.5501964333847275,
+        "0.6": 0.5992548376776321,
+        "0.7": 0.598787533469691,
+        "0.8": 0.586662810350333
+      }
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.45335475305716194,
+      "val_loss": 0.4445627836080698,
+      "best_threshold": 0.7,
+      "best_val_iou": 0.6285199072551889,
+      "threshold_scores": {
+        "0.3": 0.4333614150421343,
+        "0.4": 0.5288749962667202,
+        "0.5": 0.5567530885397175,
+        "0.6": 0.6103100955386119,
+        "0.7": 0.6285199072551889,
+        "0.8": 0.6037153431276668
+      }
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.4233133319351408,
+      "val_loss": 0.4555403303641539,
+      "best_threshold": 0.8,
+      "best_val_iou": 0.6012263995017552,
+      "threshold_scores": {
+        "0.3": 0.42005091956669005,
+        "0.4": 0.46119023967487094,
+        "0.5": 0.518140191948787,
+        "0.6": 0.5681082922283749,
+        "0.7": 0.5814874387232255,
+        "0.8": 0.6012263995017552
+      }
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.40377568039629197,
+      "val_loss": 0.4249356228571672,
+      "best_threshold": 0.7,
+      "best_val_iou": 0.5840454376472565,
+      "threshold_scores": {
+        "0.3": 0.4306936117610164,
+        "0.4": 0.4715731376317911,
+        "0.5": 0.5260040478585652,
+        "0.6": 0.5580465594514177,
+        "0.7": 0.5840454376472565,
+        "0.8": 0.5671758503277345
+      }
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.3909500633676847,
+      "val_loss": 0.43119977758480954,
+      "best_threshold": 0.8,
+      "best_val_iou": 0.6399329094738623,
+      "threshold_scores": {
+        "0.3": 0.5056783511700945,
+        "0.4": 0.5500733427802507,
+        "0.5": 0.5933053711278657,
+        "0.6": 0.6181203229694874,
+        "0.7": 0.6326018750136715,
+        "0.8": 0.6399329094738623
+      }
+    }
+  ],
+  "test_threshold_scores": {
+    "0.3": 0.45084612348619324,
+    "0.4": 0.4857188694192619,
+    "0.5": 0.5214311451556076,
+    "0.6": 0.5598402101167095,
+    "0.7": 0.5567977704039561,
+    "0.8": 0.5559027642477927
+  },
+  "evidence_image": "/content/lumiere_segformer_outputs/evidence/task_166_colab_segformer_prediction_overlay.jpg",
+  "sample_image": "/content/melasma_segmentation/test/images/800wm_jpg.rf.10adb0aedf8c83132f407b760d363aaf.jpg",
+  "sample_mask": "/content/melasma_segmentation/test/masks/800wm_jpg.rf.10adb0aedf8c83132f407b760d363aaf.png",
+  "sample_split": "test",
+  "important_limitation": "Academic prototype only. Not for medical diagnosis."
+}

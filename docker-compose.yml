@@ -1,0 +1,10 @@
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./training/checkpoints:/app/training/checkpoints:ro
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
