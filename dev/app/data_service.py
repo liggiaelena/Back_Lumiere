@@ -17,6 +17,31 @@ class AnalysisQueueFullError(RuntimeError):
     pass
 
 
+def _analysis_error_code(error: str | None) -> str | None:
+    """Return a stable client-facing code for known analysis failures."""
+    if not error:
+        return None
+    normalized = error.casefold()
+    known_errors = (
+        ("no face detected", "no_face_detected"),
+        ("multiple faces detected", "multiple_faces_detected"),
+        ("too dark", "face_too_dark"),
+        ("too bright", "face_overexposed"),
+        ("overexposed", "face_overexposed"),
+        ("bounding box is invalid", "invalid_face_region"),
+        ("did not detect a usable face/skin region", "invalid_face_region"),
+        ("face regions are incomplete", "incomplete_face_regions"),
+        ("could not encode the detected face image", "face_encoding_failed"),
+        ("segformer", "analysis_model_failed"),
+        ("checkpoint", "analysis_model_failed"),
+        ("model is missing", "analysis_model_failed"),
+    )
+    for fragment, code in known_errors:
+        if fragment in normalized:
+            return code
+    return "analysis_failed"
+
+
 def ensure_analysis_job_schema() -> None:
     migration = Path(__file__).resolve().parents[2] / "db" / "migrations" / "20260819_async_analysis_and_recommendations.sql"
     sql = migration.read_text(encoding="utf-8").strip()
@@ -169,13 +194,19 @@ def get_analysis_status(analysis_id, user_id=None):
             position = conn.execute(text("""
                 SELECT count(*) FROM analyses WHERE analysis_status='queued' AND created_at<=:created
             """), {"created": row["created_at"]}).scalar_one()
-    intervals = {"queued": 2, "predicting_local": 2, "analyzing_regions": 3, "ready": 5}
+    intervals = {"queued": 2, "predicting_local": 2, "analyzing_regions": 3}
+    analysis_error = row["analysis_error"]
+    error_code = _analysis_error_code(analysis_error)
     return {"id": row["id"], "analysis_status": row["analysis_status"],
-            "analysis_stage": row["analysis_stage"], "analysis_error": row["analysis_error"],
+            "analysis_stage": row["analysis_stage"], "analysis_error": analysis_error,
+            # `analysis_error` is retained for existing clients.  The generic
+            # fields make terminal job failures consistent with recommendation
+            # job status responses and easier for new clients to consume.
+            "error": analysis_error, "message": analysis_error, "error_code": error_code,
             "queue_position": position, "recommendation_job_id": rec["id"] if rec else None,
             "recommendation_status": rec["status"] if rec else "not_requested",
             "recommendation_error": rec["last_error"] if rec else None,
-            "poll_after_seconds": intervals.get(row["analysis_status"], 3)}
+            "poll_after_seconds": intervals.get(row["analysis_status"])}
 
 
 def get_analysis(analysis_id, user_id=None):
